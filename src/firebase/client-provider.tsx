@@ -3,7 +3,7 @@
 import React, { useMemo, type ReactNode, useEffect, useState } from 'react';
 import { FirebaseProvider } from '@/firebase/provider';
 import { initializeFirebase } from '@/firebase';
-import { signInAnonymously } from 'firebase/auth';
+import { signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import { Loader2 } from 'lucide-react';
 
 interface FirebaseClientProviderProps {
@@ -18,23 +18,27 @@ export function FirebaseClientProvider({ children }: FirebaseClientProviderProps
   }, []);
 
   useEffect(() => {
-    const initAuth = async () => {
-      // We need to make sure we have an authenticated user.
-      // Since we enabled Anonymous Auth, let's sign the user in if they aren't already.
-      if (firebaseServices.auth.currentUser) {
+    const unsubscribe = onAuthStateChanged(firebaseServices.auth, async (user) => {
+      if (user) {
+        // User is signed in.
         setIsReady(true);
-        return;
+      } else {
+        // User is signed out. Try to sign in anonymously.
+        try {
+          await signInAnonymously(firebaseServices.auth);
+          // The onAuthStateChanged listener will be called again with the new user,
+          // at which point isReady will be set to true.
+        } catch (error) {
+          console.error("Anonymous sign-in failed:", error);
+          // If sign-in fails, we might still want to render the app,
+          // but parts that require auth will fail.
+          setIsReady(true);
+        }
       }
-      try {
-        await signInAnonymously(firebaseServices.auth);
-      } catch (error) {
-        console.error("Anonymous sign-in failed:", error);
-      } finally {
-        setIsReady(true);
-      }
-    };
+    });
 
-    initAuth();
+    // Cleanup subscription on unmount
+    return () => unsubscribe();
   }, [firebaseServices.auth]);
 
   if (!isReady) {
