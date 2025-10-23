@@ -61,7 +61,27 @@ export function AttendanceForm() {
 
     const studentsByEnsino = useMemo(() => {
         if (!students) return {};
-        return students.reduce((acc, student) => {
+        // Ordenação manual no cliente para garantir a ordem desejada
+        const sortedStudents = [...students].sort((a, b) => {
+            const ensinoA = a.ensino || '';
+            const ensinoB = b.ensino || '';
+            const gradeA = a.grade || '';
+            const gradeB = b.grade || '';
+            const classA = a.class || '';
+            const classB = b.class || '';
+            const shiftA = a.shift || '';
+            const shiftB = b.shift || '';
+
+            const ensinoCompare = ensinoA.localeCompare(ensinoB);
+            if (ensinoCompare !== 0) return ensinoCompare;
+            const gradeCompare = gradeA.localeCompare(gradeB, undefined, { numeric: true });
+            if (gradeCompare !== 0) return gradeCompare;
+            const classCompare = classA.localeCompare(classB);
+            if (classCompare !== 0) return classCompare;
+            return shiftA.localeCompare(shiftB);
+        });
+
+        return sortedStudents.reduce((acc, student) => {
             const ensino = student.ensino || 'N/A';
             if (!acc[ensino]) {
                 acc[ensino] = [];
@@ -70,6 +90,7 @@ export function AttendanceForm() {
             return acc;
         }, {} as Record<string, Student[]>);
     }, [students]);
+
 
     const uniqueEnsinos = useMemo(() => Object.keys(studentsByEnsino).sort(), [studentsByEnsino]);
 
@@ -290,3 +311,5 @@ export function AttendanceForm() {
         </form>
     );
 }
+
+    
