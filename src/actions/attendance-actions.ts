@@ -4,6 +4,7 @@ import { collection, writeBatch, getDocs, query, where, doc } from "firebase/fir
 import { initializeFirebaseOnServer } from "@/firebase/server-init";
 import { format } from 'date-fns';
 import type { Student } from "@/lib/types";
+import { FirestorePermissionError } from "@/firebase/errors";
 
 export async function saveAttendance(
   formData: FormData,
@@ -11,47 +12,39 @@ export async function saveAttendance(
 ) {
   const { firestore } = initializeFirebaseOnServer();
   const today = format(new Date(), 'yyyy-MM-dd');
-  const attendanceData = new Map<string, 'present' | 'absent'>();
-
-  students.forEach(student => {
-    const status = formData.get(student.id) as 'present' | 'absent' | null;
-    attendanceData.set(student.id, status || 'absent');
-  });
-
+  
   const batch = writeBatch(firestore);
   const attendanceRef = collection(firestore, "attendance");
 
+  // Primeiro, exclui os registros de hoje para garantir dados limpos.
   const q = query(attendanceRef, where("date", "==", today));
   const existingDocsSnap = await getDocs(q);
-  const existingDocsMap = new Map<string, string>(); // studentId -> docId
   existingDocsSnap.forEach(doc => {
-      existingDocsMap.set(doc.data().studentId, doc.id);
+      batch.delete(doc.ref);
   });
 
-  for (const [studentId, status] of attendanceData.entries()) {
-      const student = students.find(s => s.id === studentId);
-      if (!student) continue;
-
-      const record = {
-          studentId,
-          studentName: student.name,
-          date: today,
-          status,
-      };
-
-      const existingDocId = existingDocsMap.get(studentId);
-      const docRef = existingDocId 
-          ? doc(firestore, "attendance", existingDocId) 
-          : doc(collection(firestore, "attendance"));
-      
-      batch.set(docRef, record);
-  }
+  // Em seguida, adiciona os novos registros de frequência.
+  students.forEach(student => {
+    const status = formData.get(student.id) as 'present' | 'absent' | null;
+    const record = {
+        studentId: student.id,
+        studentName: student.name,
+        date: today,
+        status: status || 'absent',
+    };
+    const newDocRef = doc(collection(firestore, "attendance"));
+    batch.set(newDocRef, record);
+  });
   
   return batch.commit()
     .then(() => ({ success: "Frequência salva com sucesso!" }))
     .catch((e: any) => {
       console.error("Error saving attendance:", e);
-      // Re-lançar o erro para que o Next.js o capture e exiba a tela de erro.
-      throw new Error(`Ocorreu um erro ao salvar a frequência: ${e.message}`);
+      // Lança um erro contextualizado para depuração detalhada pelo Next.js
+      throw new FirestorePermissionError({
+        path: "attendance",
+        operation: 'write',
+        requestResourceData: { info: "Batch write for daily attendance failed." }
+      });
     });
 }
