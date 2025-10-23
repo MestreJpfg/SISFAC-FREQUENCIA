@@ -12,16 +12,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { AttendanceRecord, Student } from "@/lib/types";
 import { useFirebase, useCollection, useMemoFirebase } from "@/firebase";
-import { collection, getDocs, query, where, QueryConstraint } from 'firebase/firestore';
+import { collection, getDocs, query, where, QueryConstraint, orderBy } from 'firebase/firestore';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-
-type DailyAbsenceRecord = AttendanceRecord & { studentClass: string, studentGrade: string, studentShift: string };
 
 export function DailyReport() {
     const { firestore } = useFirebase();
     const [date, setDate] = useState<Date | undefined>(new Date());
-    const [absences, setAbsences] = useState<DailyAbsenceRecord[]>([]);
+    const [absences, setAbsences] = useState<AttendanceRecord[]>([]);
     const [isPending, startTransition] = useTransition();
     const [searchedDate, setSearchedDate] = useState<Date | null>(null);
 
@@ -29,45 +27,41 @@ export function DailyReport() {
     const [studentClass, setStudentClass] = useState<string>('all');
     const [shift, setShift] = useState<string>('all');
 
-    const { data: students } = useCollection<Student>(useMemoFirebase(() => firestore ? collection(firestore, 'students') : null, [firestore]));
+    const { data: allStudents } = useCollection<Student>(useMemoFirebase(() => firestore ? query(collection(firestore, 'students'), orderBy('grade')) : null, [firestore]));
 
     const { grades, classes, shifts } = useMemo(() => {
-        if (!students) return { grades: [], classes: [], shifts: [] };
-        const grades = [...new Set(students.map(s => s.grade))].sort((a,b) => a.localeCompare(b, undefined, { numeric: true }));
-        const classes = [...new Set(students.map(s => s.class))].sort();
-        const shifts = [...new Set(students.map(s => s.shift))].sort();
-        return { grades, classes, shifts };
-    }, [students]);
+        if (!allStudents) return { grades: [], classes: [], shifts: [] };
+        const uniqueGrades = [...new Set(allStudents.map(s => s.grade))].sort((a,b) => a.localeCompare(b, undefined, { numeric: true }));
+        const uniqueClasses = [...new Set(allStudents.map(s => s.class))].sort();
+        const uniqueShifts = [...new Set(allStudents.map(s => s.shift))].sort();
+        return { grades: uniqueGrades, classes: uniqueClasses, shifts: uniqueShifts };
+    }, [allStudents]);
 
-    const getDailyAbsences = async (date: Date): Promise<DailyAbsenceRecord[]> => {
+    const getDailyAbsences = async (date: Date): Promise<AttendanceRecord[]> => {
         if (!firestore) return [];
         const dateString = format(date, 'yyyy-MM-dd');
         
         const attendanceRef = collection(firestore, 'attendance');
-        // Simplified query: filter by date only to avoid composite index requirement.
-        const q = query(attendanceRef, where('date', '==', dateString));
+        const constraints: QueryConstraint[] = [
+            where('date', '==', dateString),
+            where('status', '==', 'absent'),
+        ];
+
+        if (grade !== 'all') {
+            constraints.push(where('grade', '==', grade));
+        }
+        if (studentClass !== 'all') {
+            constraints.push(where('class', '==', studentClass));
+        }
+        if (shift !== 'all') {
+            constraints.push(where('shift', '==', shift));
+        }
+        
+        const q = query(attendanceRef, ...constraints, orderBy('studentName'));
         
         const querySnapshot = await getDocs(q);
         
-        const results: DailyAbsenceRecord[] = [];
-        querySnapshot.forEach(doc => {
-            results.push(doc.data() as DailyAbsenceRecord);
-        });
-
-        // Apply all other filters on the client side
-        let absencesResult = results.filter(r => r.status === 'absent');
-        
-        if (grade !== 'all') {
-            absencesResult = absencesResult.filter(r => r.grade === grade);
-        }
-        if (studentClass !== 'all') {
-            absencesResult = absencesResult.filter(r => r.class === studentClass);
-        }
-        if (shift !== 'all') {
-            absencesResult = absencesResult.filter(r => r.shift === shift);
-        }
-
-        return absencesResult.sort((a, b) => a.studentName.localeCompare(b.studentName));
+        return querySnapshot.docs.map(doc => doc.data() as AttendanceRecord);
     }
 
 
@@ -88,6 +82,15 @@ export function DailyReport() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [firestore]);
 
+    // Re-run search when filters change
+    useEffect(() => {
+        if(searchedDate) { // only re-search if an initial search has been made
+            handleSearch();
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [grade, studentClass, shift]);
+
+
     return (
         <Card>
             <CardHeader>
@@ -95,7 +98,7 @@ export function DailyReport() {
                 <CardDescription>Selecione uma data e filtre para ver os alunos ausentes.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 items-center">
                     <Popover>
                         <PopoverTrigger asChild>
                             <Button variant={"outline"} className="w-full justify-start text-left font-normal col-span-2 sm:col-span-1 lg:col-span-2">

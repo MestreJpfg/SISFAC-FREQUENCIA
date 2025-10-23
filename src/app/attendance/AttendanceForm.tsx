@@ -11,7 +11,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, writeBatch, doc, getDocs, query, where, orderBy, addDoc, deleteDoc } from 'firebase/firestore';
+import { collection, writeBatch, doc, getDocs, query, where, orderBy } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { errorEmitter } from '@/firebase/error-emitter';
@@ -29,7 +29,7 @@ export function AttendanceForm() {
 
     const studentsQuery = useMemoFirebase(() => {
         if (!firestore) return null;
-        return query(collection(firestore, 'students'), orderBy('name'));
+        return query(collection(firestore, 'students'), orderBy('grade'), orderBy('class'), orderBy('shift'), orderBy('name'));
     }, [firestore]);
 
     const { data: students, isLoading: isLoadingStudents } = useCollection<Student>(studentsQuery);
@@ -43,18 +43,12 @@ export function AttendanceForm() {
     const { data: todaysAttendance, isLoading: isLoadingAttendance } = useCollection<AttendanceRecord>(attendanceQuery);
 
     useEffect(() => {
-        if (students && todaysAttendance) {
+        if (students) {
             const initialAttendance: Record<string, 'present' | 'absent'> = {};
-            const todaysAttendanceMap = new Map(todaysAttendance.map(att => [att.studentId, att.status]));
+            const todaysAttendanceMap = todaysAttendance ? new Map(todaysAttendance.map(att => [att.studentId, att.status])) : new Map();
 
             students.forEach(student => {
                 initialAttendance[student.id] = todaysAttendanceMap.get(student.id) || 'present';
-            });
-            setAttendance(initialAttendance);
-        } else if (students) {
-             const initialAttendance: Record<string, 'present' | 'absent'> = {};
-             students.forEach(student => {
-                initialAttendance[student.id] = 'present';
             });
             setAttendance(initialAttendance);
         }
@@ -64,7 +58,7 @@ export function AttendanceForm() {
         if (!students) return {};
         
         return students.reduce((acc, student) => {
-            const groupKey = `${student.grade} - ${student.class} (${student.shift})`;
+            const groupKey = `${student.grade} / ${student.class} (${student.shift})`;
             if (!acc[groupKey]) {
                 acc[groupKey] = [];
             }
@@ -88,14 +82,15 @@ export function AttendanceForm() {
         const q = query(attendanceRef, where("date", "==", today));
 
         try {
-            // 1. Delete existing records for the day
-            const existingDocsSnap = await getDocs(q);
             const batch = writeBatch(firestore);
+            
+            // 1. Delete existing records for the day to avoid duplicates
+            const existingDocsSnap = await getDocs(q);
             existingDocsSnap.docs.forEach(docToDelete => {
                 batch.delete(docToDelete.ref);
             });
             
-            // 2. Add new records
+            // 2. Add new records from the current student list
             students.forEach(student => {
                 const status = formData.get(student.id) as 'present' | 'absent' | null;
                 const record = {
@@ -103,7 +98,6 @@ export function AttendanceForm() {
                     studentName: student.name,
                     date: today,
                     status: status || 'absent',
-                    // Also store student info for easier filtering in reports
                     grade: student.grade,
                     class: student.class,
                     shift: student.shift,
@@ -176,8 +170,8 @@ export function AttendanceForm() {
 
 
     const presentCount = Object.values(attendance).filter(s => s === 'present').length;
-    const absentCount = students.length - presentCount;
-    const sortedGroups = Object.keys(groupedStudents).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+    const absentCount = (students?.length || 0) - presentCount;
+    const sortedGroups = Object.keys(groupedStudents); // Already sorted by the query
 
     return (
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -198,7 +192,7 @@ export function AttendanceForm() {
                         <AccordionTrigger className="text-lg font-bold">{groupKey}</AccordionTrigger>
                         <AccordionContent>
                              <div className="p-1">
-                                {groupedStudents[groupKey].sort((a, b) => a.name.localeCompare(b.name)).map((student, index) => (
+                                {groupedStudents[groupKey].map((student, index) => (
                                     <div key={student.id}>
                                         <div className="flex items-center justify-between p-3 rounded-md hover:bg-accent/30 transition-colors">
                                             <Label htmlFor={student.id} className="cursor-pointer">

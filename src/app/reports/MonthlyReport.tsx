@@ -48,23 +48,25 @@ export function MonthlyReport() {
         if (studentClass !== 'all') constraints.push(where('class', '==', studentClass));
         if (shift !== 'all') constraints.push(where('shift', '==', shift));
         
+        // Add orderBy only when there's at least one filter to avoid errors
         if (constraints.length > 0) {
-            q = query(q, ...constraints);
+            q = query(q, ...constraints, orderBy('name'));
+        } else {
+            q = query(q, orderBy('name'));
         }
-        q = query(q, orderBy('name'));
 
         return q;
     }, [firestore, grade, studentClass, shift]);
 
     const { data: students, isLoading: isLoadingStudents } = useCollection<Student>(studentsQuery);
-    const { data: allStudents } = useCollection<Student>(useMemoFirebase(() => firestore ? collection(firestore, 'students') : null, [firestore]));
+    const { data: allStudents } = useCollection<Student>(useMemoFirebase(() => firestore ? query(collection(firestore, 'students'), orderBy('grade')) : null, [firestore]));
 
     const { grades, classes, shifts } = useMemo(() => {
         if (!allStudents) return { grades: [], classes: [], shifts: [] };
-        const grades = [...new Set(allStudents.map(s => s.grade))].sort((a,b) => a.localeCompare(b, undefined, { numeric: true }));
-        const classes = [...new Set(allStudents.map(s => s.class))].sort();
-        const shifts = [...new Set(allStudents.map(s => s.shift))].sort();
-        return { grades, classes, shifts };
+        const uniqueGrades = [...new Set(allStudents.map(s => s.grade))].sort((a,b) => a.localeCompare(b, undefined, { numeric: true }));
+        const uniqueClasses = [...new Set(allStudents.map(s => s.class))].sort();
+        const uniqueShifts = [...new Set(allStudents.map(s => s.shift))].sort();
+        return { grades: uniqueGrades, classes: uniqueClasses, shifts: uniqueShifts };
     }, [allStudents]);
 
 
@@ -74,28 +76,34 @@ export function MonthlyReport() {
         const startDate = startOfMonth(new Date(year, month));
         const endDate = endOfMonth(new Date(year, month));
 
-        const studentIdSet = new Set(students.map(s => s.id));
+        const studentIds = students.map(s => s.id);
+        if (studentIds.length === 0) return [];
 
         const attendanceRef = collection(firestore, 'attendance');
-        
-        // Simplified query: Fetch all records for the month. Filtering by status happens on the client.
-        const q = query(
-            attendanceRef,
-            where('date', '>=', format(startDate, 'yyyy-MM-dd')),
-            where('date', '<=', format(endDate, 'yyyy-MM-dd'))
-        );
-
-        const querySnapshot = await getDocs(q);
         const absenceCounts = new Map<string, number>();
 
-        querySnapshot.forEach(doc => {
-            const record = doc.data() as AttendanceRecord;
-            // Client-side filtering
-            if (record.status === 'absent' && studentIdSet.has(record.studentId)) {
-                 absenceCounts.set(record.studentId, (absenceCounts.get(record.studentId) || 0) + 1);
-            }
-        });
+        // Firestore 'in' queries are limited to 30 items. We need to batch the requests.
+        const studentIdChunks = [];
+        for (let i = 0; i < studentIds.length; i += 30) {
+            studentIdChunks.push(studentIds.slice(i, i + 30));
+        }
 
+        for (const chunk of studentIdChunks) {
+            const q = query(
+                attendanceRef,
+                where('date', '>=', format(startDate, 'yyyy-MM-dd')),
+                where('date', '<=', format(endDate, 'yyyy-MM-dd')),
+                where('status', '==', 'absent'),
+                where('studentId', 'in', chunk)
+            );
+            
+            const querySnapshot = await getDocs(q);
+
+            querySnapshot.forEach(doc => {
+                const record = doc.data() as AttendanceRecord;
+                absenceCounts.set(record.studentId, (absenceCounts.get(record.studentId) || 0) + 1);
+            });
+        }
 
         const reportData: MonthlyAbsenceData[] = students.map(student => ({
             studentId: student.id,
@@ -187,8 +195,8 @@ export function MonthlyReport() {
                         </SelectContent>
                     </Select>
                 </div>
-                 <Button onClick={handleSearch} disabled={isPending} className="w-full sm:w-auto">
-                    {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
+                 <Button onClick={handleSearch} disabled={isPending || isLoadingStudents} className="w-full sm:w-auto">
+                    {isPending || isLoadingStudents ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
                     Gerar Relatório
                 </Button>
 

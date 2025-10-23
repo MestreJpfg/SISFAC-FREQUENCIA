@@ -7,10 +7,12 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Upload } from 'lucide-react';
 import { useFirebase } from '@/firebase';
-import { collection, writeBatch, getDocs, doc } from 'firebase/firestore';
+import { collection, writeBatch, getDocs, doc, query, where } from 'firebase/firestore';
 import * as xlsx from 'xlsx';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import type { Student } from '@/lib/types';
+
 
 export function ImportForm() {
   const { firestore } = useFirebase();
@@ -44,19 +46,26 @@ export function ImportForm() {
       }
 
       const studentsRef = collection(firestore, "students");
+      
+      // Fetch existing students to avoid duplicates
       const existingStudentsSnap = await getDocs(studentsRef);
-      const deleteBatch = writeBatch(firestore);
-      existingStudentsSnap.docs.forEach(studentDoc => {
-          deleteBatch.delete(doc(firestore, "students", studentDoc.id));
-      });
-      await deleteBatch.commit();
-
+      const existingStudentsSet = new Set(
+          existingStudentsSnap.docs.map(doc => {
+              const student = doc.data() as Omit<Student, 'id'>;
+              // Create a unique key for each student
+              return `${student.name.trim().toLowerCase()}|${student.grade?.trim().toLowerCase()}|${student.class?.trim().toLowerCase()}|${student.shift?.trim().toLowerCase()}`;
+          })
+      );
+      
       const addBatch = writeBatch(firestore);
-      let studentCount = 0;
+      let newStudentsCount = 0;
+      let skippedCount = 0;
+      
+      // Start from the second row to skip header
       for (let i = 1; i < data.length; i++) {
         const row = data[i];
         if (row.length === 0 || row.every(cell => cell === null || cell === '')) {
-          continue;
+          continue; // Skip empty rows
         }
         
         const name = row[0];
@@ -64,24 +73,34 @@ export function ImportForm() {
         const studentClass = row[2];
         const shift = row[3];
 
+        // Ensure the student has a name
         if (name && typeof name === 'string' && name.trim() !== '') {
-          const newStudentRef = doc(studentsRef);
-          addBatch.set(newStudentRef, {
-            name: name.trim(),
-            grade: grade?.toString().trim() ?? "N/A",
-            class: studentClass?.toString().trim() ?? "N/A",
-            shift: shift?.toString().trim() ?? "N/A",
-          });
-          studentCount++;
+            const studentData = {
+                name: name.trim(),
+                grade: grade?.toString().trim() ?? "N/A",
+                class: studentClass?.toString().trim() ?? "N/A",
+                shift: shift?.toString().trim() ?? "N/A",
+            };
+
+            const studentKey = `${studentData.name.toLowerCase()}|${studentData.grade.toLowerCase()}|${studentData.class.toLowerCase()}|${studentData.shift.toLowerCase()}`;
+
+            if (!existingStudentsSet.has(studentKey)) {
+                const newStudentRef = doc(studentsRef);
+                addBatch.set(newStudentRef, studentData);
+                newStudentsCount++;
+                existingStudentsSet.add(studentKey); // Add to set to avoid adding duplicates from the same file
+            } else {
+                skippedCount++;
+            }
         }
       }
 
-      if (studentCount === 0) {
-          return { error: "Nenhum aluno válido encontrado no arquivo." };
+      if (newStudentsCount === 0) {
+          return { success: `Nenhum aluno novo para adicionar. ${skippedCount} aluno(s) já existente(s) foram ignorados.` };
       }
 
       await addBatch.commit();
-      return { success: `${studentCount} alunos importados com sucesso!` };
+      return { success: `${newStudentsCount} aluno(s) novo(s) importado(s). ${skippedCount} aluno(s) já existente(s) foram ignorados.` };
 
     } catch (e: any) {
         console.error("Error managing students:", e);
@@ -121,7 +140,7 @@ export function ImportForm() {
         });
       } else {
         toast({
-          title: "Sucesso",
+          title: "Importação Concluída",
           description: result.success,
         });
         setFileName('');
@@ -160,7 +179,7 @@ export function ImportForm() {
         ) : (
             <>
                 <Upload className="mr-2 h-4 w-4" />
-                Enviar e Substituir Dados
+                Adicionar Novos Alunos
             </>
         )}
       </Button>
