@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useTransition, useMemo, useEffect } from 'react';
@@ -57,23 +58,38 @@ export function AttendanceForm() {
 
     const sortedStudents = useMemo(() => {
         if (!students) return [];
-        // Ordenação manual no cliente para garantir a ordem desejada
+        // Ordenação manual no cliente para garantir a ordem desejada e evitar erros com dados incompletos
         return [...students].sort((a, b) => {
-            const ensinoCompare = a.ensino.localeCompare(b.ensino);
+            const aEnsino = a.ensino || '';
+            const bEnsino = b.ensino || '';
+            const aGrade = a.grade || '';
+            const bGrade = b.grade || '';
+            const aClass = a.class || '';
+            const bClass = b.class || '';
+            const aShift = a.shift || '';
+            const bShift = b.shift || '';
+            const aName = a.name || '';
+            const bName = b.name || '';
+
+            const ensinoCompare = aEnsino.localeCompare(bEnsino);
             if (ensinoCompare !== 0) return ensinoCompare;
-            const gradeCompare = a.grade.localeCompare(b.grade, undefined, { numeric: true });
+
+            const gradeCompare = aGrade.localeCompare(bGrade, undefined, { numeric: true });
             if (gradeCompare !== 0) return gradeCompare;
-            const classCompare = a.class.localeCompare(b.class);
+
+            const classCompare = aClass.localeCompare(bClass);
             if (classCompare !== 0) return classCompare;
-            const shiftCompare = a.shift.localeCompare(b.shift);
+
+            const shiftCompare = aShift.localeCompare(bShift);
             if (shiftCompare !== 0) return shiftCompare;
-            return a.name.localeCompare(b.name);
+
+            return aName.localeCompare(bName);
         });
     }, [students]);
 
     const groupedStudents = useMemo(() => {
         return sortedStudents.reduce((acc, student) => {
-            const groupKey = `${student.ensino} - ${student.grade} / ${student.class} (${student.shift})`;
+            const groupKey = `${student.ensino || 'N/A'} - ${student.grade || 'N/A'} / ${student.class || 'N/A'} (${student.shift || 'N/A'})`;
             if (!acc[groupKey]) {
                 acc[groupKey] = [];
             }
@@ -240,3 +256,5 @@ export function AttendanceForm() {
         </form>
     );
 }
+
+    
