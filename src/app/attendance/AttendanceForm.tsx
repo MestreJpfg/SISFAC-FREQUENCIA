@@ -12,7 +12,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, writeBatch, doc, getDocs, query, where } from 'firebase/firestore';
+import { collection, writeBatch, doc, getDocs, query, where, orderBy } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { errorEmitter } from '@/firebase/error-emitter';
@@ -29,7 +29,8 @@ export function AttendanceForm() {
     const [attendance, setAttendance] = useState<Record<string, 'present' | 'absent'>>({});
     const [isPending, startTransition] = useTransition();
     const { toast } = useToast();
-    const [activeTab, setActiveTab] = useState<string | undefined>();
+    const [activeEnsinoTab, setActiveEnsinoTab] = useState<string | undefined>();
+    const [activeTurnoTab, setActiveTurnoTab] = useState<string | undefined>();
     const [openAccordions, setOpenAccordions] = useState<string[]>([]);
 
     const studentsQuery = useMemoFirebase(() => {
@@ -59,82 +60,59 @@ export function AttendanceForm() {
         }
     }, [students, todaysAttendance]);
 
-    const studentsByEnsino = useMemo(() => {
-        if (!students) return {};
-        // Ordenação manual no cliente para garantir a ordem desejada
-        const sortedStudents = [...students].sort((a, b) => {
-            const ensinoA = a.ensino || '';
-            const ensinoB = b.ensino || '';
-            const gradeA = a.grade || '';
-            const gradeB = b.grade || '';
-            const classA = a.class || '';
-            const classB = b.class || '';
-            const shiftA = a.shift || '';
-            const shiftB = b.shift || '';
-
-            const ensinoCompare = ensinoA.localeCompare(ensinoB);
-            if (ensinoCompare !== 0) return ensinoCompare;
-            const gradeCompare = gradeA.localeCompare(gradeB, undefined, { numeric: true });
-            if (gradeCompare !== 0) return gradeCompare;
-            const classCompare = classA.localeCompare(classB);
-            if (classCompare !== 0) return classCompare;
-            return shiftA.localeCompare(shiftB);
-        });
-
-        return sortedStudents.reduce((acc, student) => {
-            const ensino = student.ensino || 'N/A';
-            if (!acc[ensino]) {
-                acc[ensino] = [];
-            }
-            acc[ensino].push(student);
-            return acc;
-        }, {} as Record<string, Student[]>);
+    const { uniqueEnsinos, uniqueTurnos } = useMemo(() => {
+        if (!students) return { uniqueEnsinos: [], uniqueTurnos: [] };
+        const ensinos = [...new Set(students.map(s => s.ensino || 'N/A'))].sort();
+        const turnos = [...new Set(students.map(s => s.shift || 'N/A'))].sort();
+        return { uniqueEnsinos: ensinos, uniqueTurnos: turnos };
     }, [students]);
 
-
-    const uniqueEnsinos = useMemo(() => Object.keys(studentsByEnsino).sort(), [studentsByEnsino]);
-
     useEffect(() => {
-        if (uniqueEnsinos.length > 0 && !activeTab) {
-            setActiveTab(uniqueEnsinos[0]);
+        if (uniqueEnsinos.length > 0 && !activeEnsinoTab) {
+            setActiveEnsinoTab(uniqueEnsinos[0]);
         }
-    }, [uniqueEnsinos, activeTab]);
+        if (uniqueTurnos.length > 0 && !activeTurnoTab) {
+            setActiveTurnoTab(uniqueTurnos[0]);
+        }
+    }, [uniqueEnsinos, activeEnsinoTab, uniqueTurnos, activeTurnoTab]);
 
     const groupedAndSortedStudents = useMemo(() => {
-        const result: Record<string, { key: string, students: Student[] }[]> = {};
-        for (const ensino of uniqueEnsinos) {
-            const groups = (studentsByEnsino[ensino] || []).reduce((acc, student) => {
-                const groupKey = `${student.grade || 'N/A'} / ${student.class || 'N/A'} (${student.shift || 'N/A'})`;
-                if (!acc[groupKey]) {
-                    acc[groupKey] = [];
-                }
-                acc[groupKey].push(student);
-                return acc;
-            }, {} as GroupedStudents);
+        if (!students || !activeEnsinoTab || !activeTurnoTab) return [];
+        
+        const filteredStudents = students
+            .filter(student => student.ensino === activeEnsinoTab)
+            .filter(student => student.shift === activeTurnoTab);
+        
+        const groups = filteredStudents.reduce((acc, student) => {
+            const groupKey = `${student.grade || 'N/A'} / ${student.class || 'N/A'}`;
+            if (!acc[groupKey]) {
+                acc[groupKey] = [];
+            }
+            acc[groupKey].push(student);
+            return acc;
+        }, {} as GroupedStudents);
 
-            result[ensino] = Object.entries(groups)
-                .map(([key, students]) => ({
-                    key,
-                    students: students.sort((a,b) => a.name.localeCompare(b.name))
-                }))
-                .sort((a, b) => {
-                    const [aGrade] = a.key.split(' / ');
-                    const [bGrade] = b.key.split(' / ');
-                    const gradeCompare = aGrade.localeCompare(bGrade, undefined, { numeric: true });
-                    if (gradeCompare !== 0) return gradeCompare;
-                    return a.key.localeCompare(b.key);
-                });
-        }
-        return result;
-    }, [studentsByEnsino, uniqueEnsinos]);
+        return Object.entries(groups)
+            .map(([key, students]) => ({
+                key,
+                students: students.sort((a,b) => (a.name || '').localeCompare(b.name || ''))
+            }))
+            .sort((a, b) => {
+                const [aGrade] = a.key.split(' / ');
+                const [bGrade] = b.key.split(' / ');
+                const gradeCompare = aGrade.localeCompare(bGrade, undefined, { numeric: true });
+                if (gradeCompare !== 0) return gradeCompare;
+                return a.key.localeCompare(b.key);
+            });
+    }, [students, activeEnsinoTab, activeTurnoTab]);
 
     useEffect(() => {
-        if (activeTab && groupedAndSortedStudents[activeTab]?.length > 0) {
-            setOpenAccordions([groupedAndSortedStudents[activeTab][0].key]);
+        if (groupedAndSortedStudents.length > 0) {
+            setOpenAccordions([groupedAndSortedStudents[0].key]);
         } else {
             setOpenAccordions([]);
         }
-    }, [activeTab, groupedAndSortedStudents]);
+    }, [groupedAndSortedStudents]);
 
 
     const handleToggle = (studentId: string, isPresent: boolean) => {
@@ -239,13 +217,15 @@ export function AttendanceForm() {
 
     return (
         <form onSubmit={handleSubmit} className="space-y-6">
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
-                    <TabsList>
-                        {uniqueEnsinos.map(ensino => (
-                            <TabsTrigger key={ensino} value={ensino}>{ensino}</TabsTrigger>
-                        ))}
-                    </TabsList>
+            <div className="space-y-4">
+                 <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+                    <Tabs value={activeEnsinoTab} onValueChange={setActiveEnsinoTab} className="w-full sm:w-auto">
+                        <TabsList>
+                            {uniqueEnsinos.map(ensino => (
+                                <TabsTrigger key={ensino} value={ensino}>{ensino}</TabsTrigger>
+                            ))}
+                        </TabsList>
+                    </Tabs>
                     <div className="flex justify-end gap-6 text-sm font-medium">
                         <div className="flex items-center gap-2" style={{color: 'hsl(142.1 76.2% 36.3%)'}}>
                             <UserCheck className="h-5 w-5" />
@@ -258,48 +238,54 @@ export function AttendanceForm() {
                     </div>
                 </div>
 
-                {uniqueEnsinos.map(ensino => (
-                    <TabsContent key={ensino} value={ensino} className="mt-4">
-                        <Accordion 
-                            type="single" 
-                            collapsible 
-                            value={openAccordions[0]}
-                            onValueChange={(value) => setOpenAccordions(value ? [value] : [])}
-                            className="w-full"
-                        >
-                            {(groupedAndSortedStudents[ensino] || []).map(group => (
-                                <AccordionItem value={group.key} key={group.key}>
-                                    <AccordionTrigger className="text-lg font-bold">{group.key}</AccordionTrigger>
-                                    <AccordionContent>
-                                        <div className="p-1">
-                                            {group.students.map((student, index) => (
-                                                <div key={student.id}>
-                                                    <div className="flex items-center justify-between p-3 rounded-md hover:bg-accent/30 transition-colors">
-                                                        <Label htmlFor={student.id} className="cursor-pointer">
-                                                            <p className="text-base font-medium">{student.name}</p>
-                                                        </Label>
-                                                        <Switch
-                                                            id={student.id}
-                                                            name={student.id}
-                                                            checked={attendance[student.id] === 'present'}
-                                                            onCheckedChange={(checked) => handleToggle(student.id, checked)}
-                                                            aria-label={`Marcar presença para ${student.name}`}
-                                                        />
-                                                    </div>
-                                                    {index < group.students.length - 1 && <Separator />}
-                                                </div>
-                                            ))}
+                <Tabs value={activeTurnoTab} onValueChange={setActiveTurnoTab} className="w-full sm:w-auto">
+                    <TabsList>
+                        {uniqueTurnos.map(turno => (
+                            <TabsTrigger key={turno} value={turno}>{turno}</TabsTrigger>
+                        ))}
+                    </TabsList>
+                </Tabs>
+            </div>
+           
+             <Accordion 
+                type="single" 
+                collapsible 
+                value={openAccordions[0]}
+                onValueChange={(value) => setOpenAccordions(value ? [value] : [])}
+                className="w-full"
+            >
+                {groupedAndSortedStudents.map(group => (
+                    <AccordionItem value={group.key} key={group.key}>
+                        <AccordionTrigger className="text-lg font-bold">{group.key}</AccordionTrigger>
+                        <AccordionContent>
+                            <div className="p-1">
+                                {group.students.map((student, index) => (
+                                    <div key={student.id}>
+                                        <div className="flex items-center justify-between p-3 rounded-md hover:bg-accent/30 transition-colors">
+                                            <Label htmlFor={student.id} className="cursor-pointer">
+                                                <p className="text-base font-medium">{student.name}</p>
+                                            </Label>
+                                            <Switch
+                                                id={student.id}
+                                                name={student.id}
+                                                checked={attendance[student.id] === 'present'}
+                                                onCheckedChange={(checked) => handleToggle(student.id, checked)}
+                                                aria-label={`Marcar presença para ${student.name}`}
+                                            />
                                         </div>
-                                    </AccordionContent>
-                                </AccordionItem>
-                            ))}
-                             {(groupedAndSortedStudents[ensino] || []).length === 0 && (
-                                <p className="text-center text-muted-foreground py-8">Nenhuma turma encontrada para este nível de ensino.</p>
-                            )}
-                        </Accordion>
-                    </TabsContent>
+                                        {index < group.students.length - 1 && <Separator />}
+                                    </div>
+                                ))}
+                            </div>
+                        </AccordionContent>
+                    </AccordionItem>
                 ))}
-            </Tabs>
+            </Accordion>
+            
+            {groupedAndSortedStudents.length === 0 && (
+                <p className="text-center text-muted-foreground py-8">Nenhuma turma encontrada para os filtros selecionados.</p>
+            )}
+
 
             <Button type="submit" disabled={isPending} className="w-full">
                 {isPending ? (
