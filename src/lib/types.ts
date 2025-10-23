@@ -4,6 +4,7 @@ export interface Student {
   class: string; // Turma
   grade: string; // Série
   shift: string; // Turno
+  ensino: string; // Nível de Ensino (e.g., Fundamental, Médio)
 }
 
 export interface AttendanceRecord {
@@ -14,4 +15,5 @@ export interface AttendanceRecord {
   grade: string;
   class: string;
   shift: string;
+  ensino: string;
 }

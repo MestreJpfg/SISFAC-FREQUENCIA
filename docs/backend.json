@@ -21,13 +21,18 @@
         "shift": {
           "type": "string",
           "description": "The shift the student attends (e.g., 'Manhã')."
+        },
+        "ensino": {
+          "type": "string",
+          "description": "The education level the student is in (e.g., 'Fundamental', 'Médio')."
         }
       },
       "required": [
         "name",
         "grade",
         "class",
-        "shift"
+        "shift",
+        "ensino"
       ]
     },
     "AttendanceRecord": {
@@ -56,13 +61,18 @@
             "present",
             "absent"
           ]
+        },
+        "ensino": {
+          "type": "string",
+          "description": "The education level of the student."
         }
       },
       "required": [
         "studentId",
         "studentName",
         "date",
-        "status"
+        "status",
+        "ensino"
       ]
     }
   },

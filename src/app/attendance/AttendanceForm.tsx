@@ -29,7 +29,7 @@ export function AttendanceForm() {
 
     const studentsQuery = useMemoFirebase(() => {
         if (!firestore) return null;
-        return query(collection(firestore, 'students'), orderBy('grade'), orderBy('class'), orderBy('shift'), orderBy('name'));
+        return query(collection(firestore, 'students'), orderBy('ensino'), orderBy('grade'), orderBy('class'), orderBy('shift'), orderBy('name'));
     }, [firestore]);
 
     const { data: students, isLoading: isLoadingStudents } = useCollection<Student>(studentsQuery);
@@ -58,7 +58,7 @@ export function AttendanceForm() {
         if (!students) return {};
         
         return students.reduce((acc, student) => {
-            const groupKey = `${student.grade} / ${student.class} (${student.shift})`;
+            const groupKey = `${student.ensino} - ${student.grade} / ${student.class} (${student.shift})`;
             if (!acc[groupKey]) {
                 acc[groupKey] = [];
             }
@@ -101,6 +101,7 @@ export function AttendanceForm() {
                     grade: student.grade,
                     class: student.class,
                     shift: student.shift,
+                    ensino: student.ensino,
                 };
                 const newDocRef = doc(attendanceRef);
                 batch.set(newDocRef, record);
@@ -186,7 +187,7 @@ export function AttendanceForm() {
                 </div>
             </div>
             
-            <Accordion type="multiple" defaultValue={[]} className="w-full">
+            <Accordion type="multiple" defaultValue={sortedGroups} className="w-full">
                  {sortedGroups.map(groupKey => (
                     <AccordionItem value={groupKey} key={groupKey}>
                         <AccordionTrigger className="text-lg font-bold">{groupKey}</AccordionTrigger>

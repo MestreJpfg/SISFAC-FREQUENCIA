@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Upload } from 'lucide-react';
 import { useFirebase } from '@/firebase';
-import { collection, writeBatch, getDocs, doc, query, where } from 'firebase/firestore';
+import { collection, writeBatch, getDocs, doc } from 'firebase/firestore';
 import * as xlsx from 'xlsx';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
@@ -47,19 +47,18 @@ export function ImportForm() {
 
       const studentsRef = collection(firestore, "students");
       
-      // Fetch existing students to avoid duplicates
+      // Fetch existing students to create a map for updates
       const existingStudentsSnap = await getDocs(studentsRef);
-      const existingStudentsSet = new Set(
-          existingStudentsSnap.docs.map(doc => {
-              const student = doc.data() as Omit<Student, 'id'>;
-              // Create a unique key for each student
-              return `${student.name.trim().toLowerCase()}|${student.grade?.trim().toLowerCase()}|${student.class?.trim().toLowerCase()}|${student.shift?.trim().toLowerCase()}`;
-          })
-      );
+      const existingStudentsMap = new Map<string, { id: string, data: Omit<Student, 'id'> }>();
+      existingStudentsSnap.docs.forEach(doc => {
+          const student = doc.data() as Omit<Student, 'id'>;
+          const studentKey = `${student.name?.trim().toLowerCase()}`; // Using only name as key, consider a more unique key if needed
+          existingStudentsMap.set(studentKey, { id: doc.id, data: student });
+      });
       
-      const addBatch = writeBatch(firestore);
+      const batch = writeBatch(firestore);
       let newStudentsCount = 0;
-      let skippedCount = 0;
+      let updatedStudentsCount = 0;
       
       // Start from the second row to skip header
       for (let i = 1; i < data.length; i++) {
@@ -72,45 +71,50 @@ export function ImportForm() {
         const grade = row[1];
         const studentClass = row[2];
         const shift = row[3];
+        const ensino = row[4];
 
-        // Ensure the student has a name
         if (name && typeof name === 'string' && name.trim() !== '') {
             const studentData = {
                 name: name.trim(),
                 grade: grade?.toString().trim() ?? "N/A",
                 class: studentClass?.toString().trim() ?? "N/A",
                 shift: shift?.toString().trim() ?? "N/A",
+                ensino: ensino?.toString().trim() ?? "N/A",
             };
 
-            const studentKey = `${studentData.name.toLowerCase()}|${studentData.grade.toLowerCase()}|${studentData.class.toLowerCase()}|${studentData.shift.toLowerCase()}`;
+            const studentKey = studentData.name.toLowerCase();
+            const existingStudent = existingStudentsMap.get(studentKey);
 
-            if (!existingStudentsSet.has(studentKey)) {
-                const newStudentRef = doc(studentsRef);
-                addBatch.set(newStudentRef, studentData);
-                newStudentsCount++;
-                existingStudentsSet.add(studentKey); // Add to set to avoid adding duplicates from the same file
+            if (existingStudent) {
+                // Update existing student
+                const studentDocRef = doc(firestore, 'students', existingStudent.id);
+                batch.update(studentDocRef, studentData);
+                updatedStudentsCount++;
             } else {
-                skippedCount++;
+                // Add new student
+                const newStudentRef = doc(studentsRef);
+                batch.set(newStudentRef, studentData);
+                newStudentsCount++;
             }
         }
       }
 
-      if (newStudentsCount === 0) {
-          return { success: `Nenhum aluno novo para adicionar. ${skippedCount} aluno(s) já existente(s) foram ignorados.` };
+      if (newStudentsCount === 0 && updatedStudentsCount === 0) {
+          return { success: `Nenhuma alteração necessária. Os dados no arquivo parecem já estar no banco de dados.` };
       }
 
-      await addBatch.commit();
-      return { success: `${newStudentsCount} aluno(s) novo(s) importado(s). ${skippedCount} aluno(s) já existente(s) foram ignorados.` };
+      await batch.commit();
+      return { success: `${newStudentsCount} aluno(s) novo(s) importado(s). ${updatedStudentsCount} aluno(s) atualizado(s).` };
 
     } catch (e: any) {
         console.error("Error managing students:", e);
         const permissionError = new FirestorePermissionError({
             path: 'students',
             operation: 'write',
-            requestResourceData: { info: "Batch write for student upload failed." }
+            requestResourceData: { info: "Batch write for student upload/update failed." }
         });
         errorEmitter.emit('permission-error', permissionError);
-        return { error: `Ocorreu um erro ao importar os alunos.` };
+        return { error: `Ocorreu um erro ao processar o arquivo.` };
     }
   };
 
@@ -140,7 +144,7 @@ export function ImportForm() {
         });
       } else {
         toast({
-          title: "Importação Concluída",
+          title: "Processamento Concluído",
           description: result.success,
         });
         setFileName('');
@@ -174,12 +178,12 @@ export function ImportForm() {
         {isPending ? (
           <>
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Importando...
+            Processando...
           </>
         ) : (
             <>
                 <Upload className="mr-2 h-4 w-4" />
-                Adicionar Novos Alunos
+                Processar Arquivo
             </>
         )}
       </Button>
