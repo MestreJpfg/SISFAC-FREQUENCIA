@@ -1,49 +1,42 @@
 /**
- * @fileoverview Firestore Security Rules for the school attendance tracker.
- *
- * Core Philosophy:
- * This ruleset is in prototyping mode to allow any read and write operations.
- * This will be updated later to improve the security.
- *
- * Data Structure:
- * - /students/{studentId}: Stores student data, with 'studentId' as the document ID.
- * - /attendance_records/{attendanceRecordId}: Stores attendance records, with 'attendanceRecordId' as the document ID.
- *
- * Key Security Decisions:
- * - All read and write operations are currently allowed.
- *
- * Denormalization for Authorization:
- * - Not applicable, as no authorization is being enforced yet.
- *
- * Structural Segregation:
- * - Students and attendance records are stored in separate, top-level collections.
+ * @file Firebase Security Rules for Attendance Tracker
+ * @corePhilosophy This ruleset provides open read access to attendance records, allowing anyone to see attendance data.
+ * It also allows anyone to read student records.
+ * All write operations are disabled.
+ * @dataStructure Attendance records are stored in the `/attendance/{attendanceId}` collection.
+ * Student records are stored in the `/students/{studentId}` collection.
+ * @keySecurityDecisions No write access is allowed.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Allows any read and write operations to students collection.
-     * @path /students/{studentId}
-     * @allow (get, list, create, update, delete) - Any user can perform any operation.
-     * @deny None
-     * @principle Prototyping mode: all access is allowed.
+     * @description Allows anyone to read attendance records, but prohibits any writes.
+     * @path /attendance/{attendanceId}
+     * @allow (get, list) Any user can read attendance records.
+     * @deny (create, update, delete) No user can create, update, or delete attendance records.
+     * @principle Grants public read access and restricts all write access.
      */
-    match /students/{studentId} {
+    match /attendance/{attendanceId} {
       allow get, list: if true;
-      allow create, update, delete: if true;
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
     }
 
     /**
-     * @description Allows any read and write operations to attendance records collection.
-     * @path /attendance_records/{attendanceRecordId}
-     * @allow (get, list, create, update, delete) - Any user can perform any operation.
-     * @deny None
-     * @principle Prototyping mode: all access is allowed.
+     * @description Allows anyone to read student records, but prohibits any writes.
+     * @path /students/{studentId}
+     * @allow (get, list) Any user can read student records.
+     * @deny (create, update, delete) No user can create, update, or delete student records.
+     * @principle Grants public read access and restricts all write access.
      */
-    match /attendance_records/{attendanceRecordId} {
+    match /students/{studentId} {
       allow get, list: if true;
-      allow create, update, delete: if true;
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
     }
   }
 }
