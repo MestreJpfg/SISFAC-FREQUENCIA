@@ -78,11 +78,11 @@ export function MonthlyReport() {
 
         const attendanceRef = collection(firestore, 'attendance');
         
+        // Simplified query: Fetch all records for the month. Filtering by status happens on the client.
         const q = query(
             attendanceRef,
             where('date', '>=', format(startDate, 'yyyy-MM-dd')),
-            where('date', '<=', format(endDate, 'yyyy-MM-dd')),
-            where('status', '==', 'absent')
+            where('date', '<=', format(endDate, 'yyyy-MM-dd'))
         );
 
         const querySnapshot = await getDocs(q);
@@ -90,7 +90,8 @@ export function MonthlyReport() {
 
         querySnapshot.forEach(doc => {
             const record = doc.data() as AttendanceRecord;
-            if (studentIdSet.has(record.studentId)) {
+            // Client-side filtering
+            if (record.status === 'absent' && studentIdSet.has(record.studentId)) {
                  absenceCounts.set(record.studentId, (absenceCounts.get(record.studentId) || 0) + 1);
             }
         });

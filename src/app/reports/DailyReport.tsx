@@ -44,17 +44,17 @@ export function DailyReport() {
         const dateString = format(date, 'yyyy-MM-dd');
         
         const attendanceRef = collection(firestore, 'attendance');
-        // Simplified query: filter by date only
+        // Simplified query: filter by date only to avoid composite index requirement.
         const q = query(attendanceRef, where('date', '==', dateString));
         
         const querySnapshot = await getDocs(q);
         
-        let results: DailyAbsenceRecord[] = [];
+        const results: DailyAbsenceRecord[] = [];
         querySnapshot.forEach(doc => {
             results.push(doc.data() as DailyAbsenceRecord);
         });
 
-        // Apply all filters on the client side
+        // Apply all other filters on the client side
         let absencesResult = results.filter(r => r.status === 'absent');
         
         if (grade !== 'all') {
