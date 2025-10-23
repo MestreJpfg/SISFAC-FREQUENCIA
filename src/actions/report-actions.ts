@@ -1,7 +1,7 @@
 "use server";
 
 import { collection, getDocs, query, where } from 'firebase/firestore';
-import { initializeFirebase } from "@/firebase";
+import { initializeFirebaseOnServer } from "@/firebase/server-init";
 import { format, startOfMonth, endOfMonth } from 'date-fns';
 import type { AttendanceRecord, Student } from '@/lib/types';
 
@@ -17,7 +17,7 @@ export interface MonthlyAbsenceData {
 type DailyAbsenceRecord = AttendanceRecord & { studentClass: string, studentGrade: string, studentShift: string };
 
 export async function getDailyAbsences(date: Date): Promise<DailyAbsenceRecord[]> {
-    const { firestore } = initializeFirebase();
+    const { firestore } = initializeFirebaseOnServer();
     const dateString = format(date, 'yyyy-MM-dd');
 
     const studentsSnap = await getDocs(collection(firestore, 'students'));
@@ -48,7 +48,7 @@ export async function getDailyAbsences(date: Date): Promise<DailyAbsenceRecord[]
 export async function getMonthlyAbsences(month: number, year: number, students: Student[]): Promise<MonthlyAbsenceData[]> {
     if (students.length === 0) return [];
     
-    const { firestore } = initializeFirebase();
+    const { firestore } = initializeFirebaseOnServer();
     const startDate = startOfMonth(new Date(year, month));
     const endDate = endOfMonth(new Date(year, month));
 

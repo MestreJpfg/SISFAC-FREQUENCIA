@@ -2,10 +2,10 @@
 
 import { collection, writeBatch, getDocs, doc, deleteDoc, addDoc } from "firebase/firestore";
 import * as xlsx from "xlsx";
-import { initializeFirebase } from "@/firebase";
+import { initializeFirebaseOnServer } from "@/firebase/server-init";
 
 export async function uploadStudents(formData: FormData) {
-  const { firestore } = initializeFirebase();
+  const { firestore } = initializeFirebaseOnServer();
   const file = formData.get("file") as File;
   if (!file) {
     return { error: "Nenhum arquivo enviado." };

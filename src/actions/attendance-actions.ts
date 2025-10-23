@@ -1,7 +1,7 @@
 "use server";
 
 import { collection, writeBatch, getDocs, query, where, doc } from "firebase/firestore";
-import { initializeFirebase } from "@/firebase";
+import { initializeFirebaseOnServer } from "@/firebase/server-init";
 import { format } from 'date-fns';
 import type { Student } from "@/lib/types";
 
@@ -9,7 +9,7 @@ export async function saveAttendance(
   formData: FormData,
   students: Student[]
 ) {
-  const { firestore } = initializeFirebase();
+  const { firestore } = initializeFirebaseOnServer();
   const today = format(new Date(), 'yyyy-MM-dd');
   const attendanceData = new Map<string, 'present' | 'absent'>();
 

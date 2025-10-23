@@ -2,13 +2,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DailyReport } from "./DailyReport";
 import { MonthlyReport } from "./MonthlyReport";
 import { collection, getDocs, orderBy, query } from 'firebase/firestore';
-import { initializeFirebase } from '@/firebase';
+import { initializeFirebaseOnServer } from '@/firebase/server-init';
 import type { Student } from '@/lib/types';
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 
 async function getStudents() {
     try {
-        const { firestore } = initializeFirebase();
+        const { firestore } = initializeFirebaseOnServer();
         const studentsRef = collection(firestore, 'students');
         const studentsQuery = query(studentsRef, orderBy('name'));
         const studentsSnap = await getDocs(studentsQuery);

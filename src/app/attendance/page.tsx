@@ -1,5 +1,5 @@
 import { collection, getDocs, query, orderBy, where } from 'firebase/firestore';
-import { initializeFirebase } from '@/firebase';
+import { initializeFirebaseOnServer } from '@/firebase/server-init';
 import type { Student, AttendanceRecord } from '@/lib/types';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 
 async function getStudentsAndAttendance() {
-    const { firestore } = initializeFirebase();
+    const { firestore } = initializeFirebaseOnServer();
     const studentsRef = collection(firestore, 'students');
     const studentsQuery = query(studentsRef, orderBy('name'));
     const studentsSnap = await getDocs(studentsQuery);
