@@ -12,7 +12,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, writeBatch, doc, getDocs, query, where, orderBy } from 'firebase/firestore';
+import { collection, writeBatch, doc, getDocs, query, where } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { errorEmitter } from '@/firebase/error-emitter';
@@ -30,8 +30,8 @@ export function AttendanceForm() {
 
     const studentsQuery = useMemoFirebase(() => {
         if (!firestore) return null;
-        // Modificação: Adicionada uma cláusula orderBy que é funcionalmente neutra mas força a reavaliação.
-        return query(collection(firestore, 'students'), orderBy('name', 'asc'));
+        // Ordenação adicionada para consistência, embora a ordenação principal seja feita no cliente.
+        return query(collection(firestore, 'students'));
     }, [firestore]);
 
     const { data: students, isLoading: isLoadingStudents } = useCollection<Student>(studentsQuery);
@@ -74,6 +74,7 @@ export function AttendanceForm() {
             const ensinoCompare = aEnsino.localeCompare(bEnsino);
             if (ensinoCompare !== 0) return ensinoCompare;
 
+            // Ordenação numérica para séries
             const gradeCompare = aGrade.localeCompare(bGrade, undefined, { numeric: true });
             if (gradeCompare !== 0) return gradeCompare;
 
@@ -216,7 +217,7 @@ export function AttendanceForm() {
                 </div>
             </div>
             
-            <Accordion type="multiple" defaultValue={sortedGroups} className="w-full">
+            <Accordion type="single" collapsible defaultValue={sortedGroups.length > 0 ? sortedGroups[0] : undefined} className="w-full">
                  {sortedGroups.map(groupKey => (
                     <AccordionItem value={groupKey} key={groupKey}>
                         <AccordionTrigger className="text-lg font-bold">{groupKey}</AccordionTrigger>
@@ -256,5 +257,3 @@ export function AttendanceForm() {
         </form>
     );
 }
-
-    
