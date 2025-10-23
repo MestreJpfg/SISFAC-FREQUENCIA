@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition, useEffect, useMemo } from "react";
-import { format, getMonth, getYear, startOfMonth, endOfMonth } from "fns";
+import { format, getMonth, getYear, startOfMonth, endOfMonth } from "date-fns";
 import { ptBR } from 'date-fns/locale';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -233,3 +233,4 @@ export function MonthlyReport() {
             </CardContent>
         </Card>
     );
+}
