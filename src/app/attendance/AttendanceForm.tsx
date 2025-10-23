@@ -82,7 +82,9 @@ export function AttendanceForm({ students, initialAttendance }: AttendanceFormPr
                             <div className="flex items-center justify-between p-3 rounded-md hover:bg-accent/30 transition-colors">
                                 <Label htmlFor={student.id} className="cursor-pointer">
                                     <p className="text-base font-medium">{student.name}</p>
-                                    <p className="text-sm font-normal text-muted-foreground">{student.class}</p>
+                                    <p className="text-sm font-normal text-muted-foreground">
+                                        {student.grade} - {student.class} ({student.shift})
+                                    </p>
                                 </Label>
                                 <Switch
                                     id={student.id}

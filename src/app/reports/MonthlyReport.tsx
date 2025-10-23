@@ -93,7 +93,9 @@ export function MonthlyReport({ students }: { students: Student[] }) {
                                 <TableHeader>
                                     <TableRow>
                                         <TableHead>Nome do Aluno</TableHead>
+                                        <TableHead>Série</TableHead>
                                         <TableHead>Turma</TableHead>
+                                        <TableHead>Turno</TableHead>
                                         <TableHead className="text-right">Total de Faltas</TableHead>
                                     </TableRow>
                                 </TableHeader>
@@ -101,7 +103,9 @@ export function MonthlyReport({ students }: { students: Student[] }) {
                                     {report.map((data) => (
                                         <TableRow key={data.studentId}>
                                             <TableCell className="font-medium">{data.studentName}</TableCell>
+                                            <TableCell>{data.studentGrade}</TableCell>
                                             <TableCell>{data.studentClass}</TableCell>
+                                            <TableCell>{data.studentShift}</TableCell>
                                             <TableCell className="text-right font-bold">{data.absenceCount}</TableCell>
                                         </TableRow>
                                     ))}

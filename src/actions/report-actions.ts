@@ -9,10 +9,12 @@ export interface MonthlyAbsenceData {
     studentId: string;
     studentName: string;
     studentClass: string;
+    studentGrade: string;
+    studentShift: string;
     absenceCount: number;
 }
 
-type DailyAbsenceRecord = AttendanceRecord & { studentClass: string };
+type DailyAbsenceRecord = AttendanceRecord & { studentClass: string, studentGrade: string, studentShift: string };
 
 export async function getDailyAbsences(date: Date): Promise<DailyAbsenceRecord[]> {
     const dateString = format(date, 'yyyy-MM-dd');
@@ -33,7 +35,9 @@ export async function getDailyAbsences(date: Date): Promise<DailyAbsenceRecord[]
         const studentInfo = studentMap.get(record.studentId);
         absences.push({
             ...record,
-            studentClass: studentInfo?.class || 'N/A'
+            studentClass: studentInfo?.class || 'N/A',
+            studentGrade: studentInfo?.grade || 'N/A',
+            studentShift: studentInfo?.shift || 'N/A',
         });
     });
 
@@ -66,6 +70,8 @@ export async function getMonthlyAbsences(month: number, year: number, students: 
         studentId: student.id,
         studentName: student.name,
         studentClass: student.class,
+        studentGrade: student.grade,
+        studentShift: student.shift,
         absenceCount: absenceCounts.get(student.id) || 0,
     }))
      .sort((a, b) => b.absenceCount - a.absenceCount || a.studentName.localeCompare(b.studentName));

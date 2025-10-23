@@ -16,7 +16,7 @@ export default function ImportPage() {
             <div>
               <CardTitle className="font-headline">Importar Banco de Dados de Alunos</CardTitle>
               <CardDescription className="mt-1">
-                Envie um arquivo Excel (.xlsx, .xls) com as colunas 'Nome' e 'Turma' para popular o sistema.
+                Envie um arquivo Excel (.xlsx, .xls) com as colunas na seguinte ordem: Nome, Série, Turma e Turno.
                 Atenção: o envio de um novo arquivo substituirá todos os dados existentes.
               </CardDescription>
             </div>

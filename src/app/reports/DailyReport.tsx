@@ -10,10 +10,11 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { getDailyAbsences } from "@/actions/report-actions";
-import { AttendanceRecord } from "@/lib/types";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import type { AttendanceRecord, Student } from "@/lib/types";
 
-type DailyAbsenceRecord = AttendanceRecord & { studentClass: string };
+
+type DailyAbsenceRecord = AttendanceRecord & { studentClass: string, studentGrade: string, studentShift: string };
 
 export function DailyReport() {
     const [date, setDate] = useState<Date | undefined>(new Date());
@@ -75,14 +76,18 @@ export function DailyReport() {
                                 <TableHeader>
                                     <TableRow>
                                         <TableHead>Nome do Aluno</TableHead>
+                                        <TableHead>Série</TableHead>
                                         <TableHead>Turma</TableHead>
+                                        <TableHead>Turno</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                     {absences.map((record) => (
                                         <TableRow key={record.studentId}>
                                             <TableCell className="font-medium">{record.studentName}</TableCell>
+                                            <TableCell>{record.studentGrade}</TableCell>
                                             <TableCell>{record.studentClass}</TableCell>
+                                            <TableCell>{record.studentShift}</TableCell>
                                         </TableRow>
                                     ))}
                                 </TableBody>

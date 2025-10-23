@@ -1,7 +1,9 @@
 export interface Student {
   id: string;
   name: string;
-  class: string;
+  class: string; // Turma
+  grade: string; // Série
+  shift: string; // Turno
 }
 
 export interface AttendanceRecord {
