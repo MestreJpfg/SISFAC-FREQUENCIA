@@ -1,12 +1,9 @@
-import { collection, getDocs, query, orderBy, where } from 'firebase/firestore';
-import { initializeFirebaseOnServer } from '@/firebase/server-init';
-import type { Student, AttendanceRecord } from '@/lib/types';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+
 import { AttendanceForm } from './AttendanceForm';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Users } from 'lucide-react';
-
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 export default async function AttendancePage() {
     const todayString = format(new Date(), "eeee, dd 'de' MMMM 'de' yyyy", { locale: ptBR });

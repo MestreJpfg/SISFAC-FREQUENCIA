@@ -17,7 +17,7 @@ import { format } from 'date-fns';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { errorEmitter } from '@/firebase/error-emitter';
 import Link from 'next/link';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 
 type GroupedStudents = {
@@ -29,8 +29,8 @@ export function AttendanceForm() {
     const [attendance, setAttendance] = useState<Record<string, 'present' | 'absent'>>({});
     const [isPending, startTransition] = useTransition();
     const { toast } = useToast();
-    const [selectedEnsino, setSelectedEnsino] = useState('all');
-    const [openAccordion, setOpenAccordion] = useState<string | undefined>();
+    const [activeTab, setActiveTab] = useState<string | undefined>();
+    const [openAccordions, setOpenAccordions] = useState<string[]>([]);
 
     const studentsQuery = useMemoFirebase(() => {
         if (!firestore) return null;
@@ -59,72 +59,62 @@ export function AttendanceForm() {
         }
     }, [students, todaysAttendance]);
 
-    const sortedStudents = useMemo(() => {
-        if (!students) return [];
-        return [...students].sort((a, b) => {
-            const aEnsino = a.ensino || '';
-            const bEnsino = b.ensino || '';
-            const aGrade = a.grade || '';
-            const bGrade = b.grade || '';
-            const aClass = a.class || '';
-            const bClass = b.class || '';
-            const aShift = a.shift || '';
-            const bShift = b.shift || '';
-            const aName = a.name || '';
-            const bName = b.name || '';
-
-            const ensinoCompare = aEnsino.localeCompare(bEnsino);
-            if (ensinoCompare !== 0) return ensinoCompare;
-
-            const gradeCompare = aGrade.localeCompare(bGrade, undefined, { numeric: true });
-            if (gradeCompare !== 0) return gradeCompare;
-
-            const classCompare = aClass.localeCompare(bClass);
-            if (classCompare !== 0) return classCompare;
-
-            const shiftCompare = aShift.localeCompare(bShift);
-            if (shiftCompare !== 0) return shiftCompare;
-
-            return aName.localeCompare(bName);
-        });
-    }, [students]);
-
-    const uniqueEnsinos = useMemo(() => {
-        if (!students) return [];
-        return [...new Set(students.map(s => s.ensino || 'N/A'))].sort();
-    }, [students]);
-
-    const filteredStudents = useMemo(() => {
-        if (selectedEnsino === 'all') {
-            return sortedStudents;
-        }
-        return sortedStudents.filter(student => student.ensino === selectedEnsino);
-    }, [sortedStudents, selectedEnsino]);
-
-    const groupedStudents = useMemo(() => {
-        return filteredStudents.reduce((acc, student) => {
-            const groupKey = `${student.grade || 'N/A'} / ${student.class || 'N/A'} (${student.shift || 'N/A'})`;
-            if (!acc[groupKey]) {
-                acc[groupKey] = [];
+    const studentsByEnsino = useMemo(() => {
+        if (!students) return {};
+        return students.reduce((acc, student) => {
+            const ensino = student.ensino || 'N/A';
+            if (!acc[ensino]) {
+                acc[ensino] = [];
             }
-            acc[groupKey].push(student);
+            acc[ensino].push(student);
             return acc;
-        }, {} as GroupedStudents);
-    }, [filteredStudents]);
-    
-    const sortedGroups = useMemo(() => Object.keys(groupedStudents).sort((a, b) => {
-         const [aGrade, aRest] = a.split(' / ');
-         const [bGrade, bRest] = b.split(' / ');
+        }, {} as Record<string, Student[]>);
+    }, [students]);
 
-         const gradeCompare = aGrade.localeCompare(bGrade, undefined, { numeric: true });
-         if (gradeCompare !== 0) return gradeCompare;
-
-         return aRest.localeCompare(bRest);
-    }), [groupedStudents]);
+    const uniqueEnsinos = useMemo(() => Object.keys(studentsByEnsino).sort(), [studentsByEnsino]);
 
     useEffect(() => {
-        setOpenAccordion(sortedGroups[0]);
-    }, [sortedGroups]);
+        if (uniqueEnsinos.length > 0 && !activeTab) {
+            setActiveTab(uniqueEnsinos[0]);
+        }
+    }, [uniqueEnsinos, activeTab]);
+
+    const groupedAndSortedStudents = useMemo(() => {
+        const result: Record<string, { key: string, students: Student[] }[]> = {};
+        for (const ensino of uniqueEnsinos) {
+            const groups = (studentsByEnsino[ensino] || []).reduce((acc, student) => {
+                const groupKey = `${student.grade || 'N/A'} / ${student.class || 'N/A'} (${student.shift || 'N/A'})`;
+                if (!acc[groupKey]) {
+                    acc[groupKey] = [];
+                }
+                acc[groupKey].push(student);
+                return acc;
+            }, {} as GroupedStudents);
+
+            result[ensino] = Object.entries(groups)
+                .map(([key, students]) => ({
+                    key,
+                    students: students.sort((a,b) => a.name.localeCompare(b.name))
+                }))
+                .sort((a, b) => {
+                    const [aGrade] = a.key.split(' / ');
+                    const [bGrade] = b.key.split(' / ');
+                    const gradeCompare = aGrade.localeCompare(bGrade, undefined, { numeric: true });
+                    if (gradeCompare !== 0) return gradeCompare;
+                    return a.key.localeCompare(b.key);
+                });
+        }
+        return result;
+    }, [studentsByEnsino, uniqueEnsinos]);
+
+    useEffect(() => {
+        if (activeTab && groupedAndSortedStudents[activeTab]?.length > 0) {
+            setOpenAccordions([groupedAndSortedStudents[activeTab][0].key]);
+        } else {
+            setOpenAccordions([]);
+        }
+    }, [activeTab, groupedAndSortedStudents]);
+
 
     const handleToggle = (studentId: string, isPresent: boolean) => {
         setAttendance(prev => ({
@@ -133,25 +123,25 @@ export function AttendanceForm() {
         }));
     };
 
-    const saveAttendance = async (formData: FormData) => {
+    const saveAttendance = async () => {
         if (!firestore || !students) return;
         
         const today = format(new Date(), 'yyyy-MM-dd');
         const attendanceRef = collection(firestore, "attendance");
-        const q = query(attendanceRef, where("date", "==", today));
 
         try {
             const batch = writeBatch(firestore);
             
+            const q = query(collection(firestore, "attendance"), where("date", "==", today));
             const existingDocsSnap = await getDocs(q);
             existingDocsSnap.docs.forEach(docToDelete => {
                 batch.delete(docToDelete.ref);
             });
             
-            students.forEach(student => {
-                const status = formData.get(student.id) as 'present' | 'absent' | null;
-                if (status) { // Only write if student has a status (i.e. is visible in the form)
-                    const record = {
+            Object.entries(attendance).forEach(([studentId, status]) => {
+                const student = students.find(s => s.id === studentId);
+                if (student) {
+                     const record = {
                         studentId: student.id,
                         studentName: student.name,
                         date: today,
@@ -193,16 +183,8 @@ export function AttendanceForm() {
 
     const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
-        const formData = new FormData();
-        Object.entries(attendance).forEach(([studentId, status]) => {
-            // Check if the student is part of the currently filtered students
-            if (filteredStudents.some(s => s.id === studentId)) {
-                 formData.append(studentId, status);
-            }
-        });
-
         startTransition(() => {
-            saveAttendance(formData);
+            saveAttendance();
         });
     };
     
@@ -231,73 +213,72 @@ export function AttendanceForm() {
         )
     }
 
-    const presentCount = Object.entries(attendance).filter(([id, status]) => status === 'present' && filteredStudents.some(s => s.id === id)).length;
-    const absentCount = filteredStudents.length - presentCount;
+    const presentCount = Object.values(attendance).filter(status => status === 'present').length;
+    const absentCount = Object.values(attendance).length - presentCount;
 
     return (
         <form onSubmit={handleSubmit} className="space-y-6">
-             <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
-                <div className="grid gap-1.5 w-full sm:w-auto sm:max-w-xs">
-                    <Label htmlFor="ensino-filter">Filtrar por Ensino</Label>
-                    <Select value={selectedEnsino} onValueChange={setSelectedEnsino}>
-                        <SelectTrigger id="ensino-filter">
-                            <SelectValue placeholder="Selecione o Ensino" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">Todos os Ensinos</SelectItem>
-                            {uniqueEnsinos.map(ensino => (
-                                <SelectItem key={ensino} value={ensino}>{ensino}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                </div>
-                <div className="flex justify-end gap-6 text-sm font-medium">
-                    <div className="flex items-center gap-2" style={{color: 'hsl(142.1 76.2% 36.3%)'}}>
-                        <UserCheck className="h-5 w-5" />
-                        Presentes: {presentCount}
-                    </div>
-                    <div className="flex items-center gap-2" style={{color: 'hsl(0 84.2% 60.2%)'}}>
-                        <UserX className="h-5 w-5" />
-                        Ausentes: {absentCount}
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+                    <TabsList>
+                        {uniqueEnsinos.map(ensino => (
+                            <TabsTrigger key={ensino} value={ensino}>{ensino}</TabsTrigger>
+                        ))}
+                    </TabsList>
+                    <div className="flex justify-end gap-6 text-sm font-medium">
+                        <div className="flex items-center gap-2" style={{color: 'hsl(142.1 76.2% 36.3%)'}}>
+                            <UserCheck className="h-5 w-5" />
+                            Presentes (Total): {presentCount}
+                        </div>
+                        <div className="flex items-center gap-2" style={{color: 'hsl(0 84.2% 60.2%)'}}>
+                            <UserX className="h-5 w-5" />
+                            Ausentes (Total): {absentCount}
+                        </div>
                     </div>
                 </div>
-            </div>
-            
-            <Accordion 
-                type="single" 
-                collapsible 
-                value={openAccordion}
-                onValueChange={setOpenAccordion}
-                className="w-full"
-            >
-                 {sortedGroups.map(groupKey => (
-                    <AccordionItem value={groupKey} key={groupKey}>
-                        <AccordionTrigger className="text-lg font-bold">{groupKey}</AccordionTrigger>
-                        <AccordionContent>
-                             <div className="p-1">
-                                {groupedStudents[groupKey].map((student, index) => (
-                                    <div key={student.id}>
-                                        <div className="flex items-center justify-between p-3 rounded-md hover:bg-accent/30 transition-colors">
-                                            <Label htmlFor={student.id} className="cursor-pointer">
-                                                <p className="text-base font-medium">{student.name}</p>
-                                            </Label>
-                                            <Switch
-                                                id={student.id}
-                                                name={student.id}
-                                                checked={attendance[student.id] === 'present'}
-                                                onCheckedChange={(checked) => handleToggle(student.id, checked)}
-                                                aria-label={`Marcar presença para ${student.name}`}
-                                            />
-                                        </div>
-                                        {index < groupedStudents[groupKey].length - 1 && <Separator />}
-                                    </div>
-                                ))}
-                            </div>
-                        </AccordionContent>
-                    </AccordionItem>
-                ))}
-            </Accordion>
 
+                {uniqueEnsinos.map(ensino => (
+                    <TabsContent key={ensino} value={ensino} className="mt-4">
+                        <Accordion 
+                            type="single" 
+                            collapsible 
+                            value={openAccordions[0]}
+                            onValueChange={(value) => setOpenAccordions(value ? [value] : [])}
+                            className="w-full"
+                        >
+                            {(groupedAndSortedStudents[ensino] || []).map(group => (
+                                <AccordionItem value={group.key} key={group.key}>
+                                    <AccordionTrigger className="text-lg font-bold">{group.key}</AccordionTrigger>
+                                    <AccordionContent>
+                                        <div className="p-1">
+                                            {group.students.map((student, index) => (
+                                                <div key={student.id}>
+                                                    <div className="flex items-center justify-between p-3 rounded-md hover:bg-accent/30 transition-colors">
+                                                        <Label htmlFor={student.id} className="cursor-pointer">
+                                                            <p className="text-base font-medium">{student.name}</p>
+                                                        </Label>
+                                                        <Switch
+                                                            id={student.id}
+                                                            name={student.id}
+                                                            checked={attendance[student.id] === 'present'}
+                                                            onCheckedChange={(checked) => handleToggle(student.id, checked)}
+                                                            aria-label={`Marcar presença para ${student.name}`}
+                                                        />
+                                                    </div>
+                                                    {index < group.students.length - 1 && <Separator />}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </AccordionContent>
+                                </AccordionItem>
+                            ))}
+                             {(groupedAndSortedStudents[ensino] || []).length === 0 && (
+                                <p className="text-center text-muted-foreground py-8">Nenhuma turma encontrada para este nível de ensino.</p>
+                            )}
+                        </Accordion>
+                    </TabsContent>
+                ))}
+            </Tabs>
 
             <Button type="submit" disabled={isPending} className="w-full">
                 {isPending ? (
@@ -309,5 +290,3 @@ export function AttendanceForm() {
         </form>
     );
 }
-
-    
