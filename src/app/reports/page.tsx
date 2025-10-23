@@ -1,14 +1,15 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DailyReport } from "./DailyReport";
 import { MonthlyReport } from "./MonthlyReport";
-import { collection, getDocs, orderBy } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { collection, getDocs, orderBy, query } from 'firebase/firestore';
+import { initializeFirebase } from '@/firebase';
 import type { Student } from '@/lib/types';
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 
 async function getStudents() {
     try {
-        const studentsRef = collection(db, 'students');
+        const { firestore } = initializeFirebase();
+        const studentsRef = collection(firestore, 'students');
         const studentsQuery = query(studentsRef, orderBy('name'));
         const studentsSnap = await getDocs(studentsQuery);
         return studentsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Student));

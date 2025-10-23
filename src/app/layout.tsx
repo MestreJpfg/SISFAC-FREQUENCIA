@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { Header } from "@/components/Header";
+import { FirebaseClientProvider } from "@/firebase/client-provider";
 
 export const metadata: Metadata = {
   title: "School Attendance Tracker",
@@ -24,13 +25,15 @@ export default function RootLayout({
         />
       </head>
       <body className="font-body antialiased">
-        <div className="min-h-screen flex flex-col">
-          <Header />
-          <main className="flex-grow container mx-auto p-4 md:p-8">
-            {children}
-          </main>
-        </div>
-        <Toaster />
+        <FirebaseClientProvider>
+          <div className="min-h-screen flex flex-col">
+            <Header />
+            <main className="flex-grow container mx-auto p-4 md:p-8">
+              {children}
+            </main>
+          </div>
+          <Toaster />
+        </FirebaseClientProvider>
       </body>
     </html>
   );

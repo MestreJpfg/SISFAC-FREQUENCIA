@@ -1,7 +1,7 @@
 "use server";
 
 import { collection, writeBatch, getDocs, query, where, doc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { initializeFirebase } from "@/firebase";
 import { format } from 'date-fns';
 import type { Student } from "@/lib/types";
 
@@ -9,6 +9,7 @@ export async function saveAttendance(
   formData: FormData,
   students: Student[]
 ) {
+  const { firestore } = initializeFirebase();
   const today = format(new Date(), 'yyyy-MM-dd');
   const attendanceData = new Map<string, 'present' | 'absent'>();
 
@@ -18,8 +19,8 @@ export async function saveAttendance(
   });
 
   try {
-    const batch = writeBatch(db);
-    const attendanceRef = collection(db, "attendance");
+    const batch = writeBatch(firestore);
+    const attendanceRef = collection(firestore, "attendance");
 
     const q = query(attendanceRef, where("date", "==", today));
     const existingDocsSnap = await getDocs(q);
@@ -41,8 +42,8 @@ export async function saveAttendance(
 
         const existingDocId = existingDocsMap.get(studentId);
         const docRef = existingDocId 
-            ? doc(db, "attendance", existingDocId) 
-            : doc(collection(db, "attendance"));
+            ? doc(firestore, "attendance", existingDocId) 
+            : doc(collection(firestore, "attendance"));
         
         batch.set(docRef, record);
     }

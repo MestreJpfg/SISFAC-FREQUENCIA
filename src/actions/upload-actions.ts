@@ -2,9 +2,10 @@
 
 import { collection, writeBatch, getDocs, doc, deleteDoc, addDoc } from "firebase/firestore";
 import * as xlsx from "xlsx";
-import { db } from "@/lib/firebase";
+import { initializeFirebase } from "@/firebase";
 
 export async function uploadStudents(formData: FormData) {
+  const { firestore } = initializeFirebase();
   const file = formData.get("file") as File;
   if (!file) {
     return { error: "Nenhum arquivo enviado." };
@@ -23,13 +24,13 @@ export async function uploadStudents(formData: FormData) {
     }
 
     // Etapa 2: Excluir todos os alunos existentes (de forma mais segura)
-    const studentsRef = collection(db, "students");
+    const studentsRef = collection(firestore, "students");
     const existingStudentsSnap = await getDocs(studentsRef);
     if (!existingStudentsSnap.empty) {
         // Usar um lote para exclusão é bom, mas se houver mais de 500 alunos, falhará.
         // Vamos excluir um por um para garantir.
         for (const studentDoc of existingStudentsSnap.docs) {
-            await deleteDoc(doc(db, "students", studentDoc.id));
+            await deleteDoc(doc(firestore, "students", studentDoc.id));
         }
     }
 

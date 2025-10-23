@@ -1,5 +1,5 @@
-import { collection, getDocs, query, orderBy } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { collection, getDocs, query, orderBy, where } from 'firebase/firestore';
+import { initializeFirebase } from '@/firebase';
 import type { Student, AttendanceRecord } from '@/lib/types';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -11,7 +11,8 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 
 async function getStudentsAndAttendance() {
-    const studentsRef = collection(db, 'students');
+    const { firestore } = initializeFirebase();
+    const studentsRef = collection(firestore, 'students');
     const studentsQuery = query(studentsRef, orderBy('name'));
     const studentsSnap = await getDocs(studentsQuery);
     const students: Student[] = studentsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Student));
@@ -22,7 +23,7 @@ async function getStudentsAndAttendance() {
 
     // This part runs on the server, so new Date() is fine.
     const today = format(new Date(), 'yyyy-MM-dd');
-    const attendanceRef = collection(db, 'attendance');
+    const attendanceRef = collection(firestore, 'attendance');
     const attendanceQuery = query(attendanceRef, where('date', '==', today));
     const attendanceSnap = await getDocs(attendanceQuery);
     

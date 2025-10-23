@@ -1,7 +1,7 @@
 "use server";
 
 import { collection, getDocs, query, where } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { initializeFirebase } from "@/firebase";
 import { format, startOfMonth, endOfMonth } from 'date-fns';
 import type { AttendanceRecord, Student } from '@/lib/types';
 
@@ -17,15 +17,16 @@ export interface MonthlyAbsenceData {
 type DailyAbsenceRecord = AttendanceRecord & { studentClass: string, studentGrade: string, studentShift: string };
 
 export async function getDailyAbsences(date: Date): Promise<DailyAbsenceRecord[]> {
+    const { firestore } = initializeFirebase();
     const dateString = format(date, 'yyyy-MM-dd');
 
-    const studentsSnap = await getDocs(collection(db, 'students'));
+    const studentsSnap = await getDocs(collection(firestore, 'students'));
     const studentMap = new Map<string, Student>();
     studentsSnap.forEach(doc => studentMap.set(doc.id, { id: doc.id, ...doc.data()} as Student));
 
     if (studentMap.size === 0) return [];
 
-    const attendanceRef = collection(db, 'attendance');
+    const attendanceRef = collection(firestore, 'attendance');
     const q = query(attendanceRef, where('date', '==', dateString), where('status', '==', 'absent'));
     const querySnapshot = await getDocs(q);
     
@@ -46,11 +47,12 @@ export async function getDailyAbsences(date: Date): Promise<DailyAbsenceRecord[]
 
 export async function getMonthlyAbsences(month: number, year: number, students: Student[]): Promise<MonthlyAbsenceData[]> {
     if (students.length === 0) return [];
-
+    
+    const { firestore } = initializeFirebase();
     const startDate = startOfMonth(new Date(year, month));
     const endDate = endOfMonth(new Date(year, month));
 
-    const attendanceRef = collection(db, 'attendance');
+    const attendanceRef = collection(firestore, 'attendance');
     const q = query(
         attendanceRef,
         where('date', '>=', format(startDate, 'yyyy-MM-dd')),
