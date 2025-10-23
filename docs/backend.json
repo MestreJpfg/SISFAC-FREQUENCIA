@@ -65,6 +65,18 @@
         "ensino": {
           "type": "string",
           "description": "The education level of the student."
+        },
+        "grade": {
+          "type": "string",
+          "description": "The grade of the student."
+        },
+        "class": {
+          "type": "string",
+          "description": "The class of the student."
+        },
+        "shift": {
+          "type": "string",
+          "description": "The shift of the student."
         }
       },
       "required": [
@@ -72,7 +84,10 @@
         "studentName",
         "date",
         "status",
-        "ensino"
+        "ensino",
+        "grade",
+        "class",
+        "shift"
       ]
     }
   },
