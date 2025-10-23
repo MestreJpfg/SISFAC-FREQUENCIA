@@ -1,54 +1,46 @@
 /**
- * @file Firestore Security Rules
- * @description This ruleset provides basic read and write access to student and attendance data, restricting modifications to authenticated users only.
+ * @fileoverview Firestore Security Rules for the school attendance tracker application.
  *
  * Core Philosophy:
- * The security model prioritizes ease of use for prototyping and testing, while ensuring authenticated access. It assumes all users of the application are trusted, but requires authentication for any data modification.  In a production environment, implement a stricter authorization model using a dedicated roles or permissions system.
+ * This ruleset prioritizes secure access to student and attendance data.
+ * The application uses anonymous authentication, so all rules are based on the assumption that request.auth will be null.
+ * Since there are no authenticated users, all write operations are disabled and all data is effectively public.
  *
  * Data Structure:
- * - /students/{studentId}: Stores student profiles.
- * - /attendance/{attendanceId}: Stores individual attendance records.
+ * The Firestore database consists of two top-level collections: 'students' and 'attendance'.
+ * - /students/{studentId}: Stores student profile information.
+ * - /attendance/{attendanceId}: Stores attendance records for students.
  *
  * Key Security Decisions:
- * - Authenticated Writes: Only authenticated users can create, update, or delete student or attendance records. This prevents unauthorized modifications of the dataset, but any authenticated user can make modifications.
- * - No Data Validation: Data validation (beyond ownership) is not enforced, allowing for rapid prototyping and schema iteration.
- * - Public Reads: Both students and attendance records are publicly readable to enable easy data exploration within the app. In a production environment, consider restricting data to specific user roles.
+ * - Anonymous Authentication: The app uses anonymous authentication; therefore, all writes are disabled by default.
+ * - Public Read Access: Both collections are readable by everyone, including unauthenticated users.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Grants read access to all and requires authentication for writes to student records.
+     * @description Allows anyone to read student data.  Write access is denied for everyone, as the app uses anonymous auth.
      * @path /students/{studentId}
-     * @allow (get, list): Any user can read student data.
-     * @allow (create, update, delete): Any authenticated user can modify student data.
-     * @deny (create, update, delete): Unauthenticated users cannot modify student data.
-     * @principle Authenticated users can read student data.
+     * @allow (get, list): Any user can read student data, even without authentication.
+     * @deny (create, update, delete): No one can create, update, or delete student data.
+     * @principle Allows public read access for student information.
      */
     match /students/{studentId} {
       allow get, list: if true;
-      allow create, update, delete: if isSignedIn();
+      allow create, update, delete: if false;
     }
 
     /**
-     * @description Grants read access to all and requires authentication for writes to attendance records.
+     * @description Allows anyone to read attendance records. Write access is denied for everyone.
      * @path /attendance/{attendanceId}
-     * @allow (get, list): Any user can read attendance data.
-     * @allow (create, update, delete): Any authenticated user can modify attendance data.
-     * @deny (create, update, delete): Unauthenticated users cannot modify attendance data.
-     * @principle Authenticated users can modify attendance records.
+     * @allow (get, list): Any user can read attendance records, even without authentication.
+     * @deny (create, update, delete): No one can create, update, or delete attendance records.
+     * @principle Allows public read access for attendance records.
      */
     match /attendance/{attendanceId} {
       allow get, list: if true;
-      allow create, update, delete: if isSignedIn();
-    }
-
-    /**
-     * @description Helper function to check if a user is signed in.
-     */
-    function isSignedIn() {
-      return request.auth != null;
+      allow create, update, delete: if false;
     }
   }
 }
