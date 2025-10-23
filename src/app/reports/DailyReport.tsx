@@ -44,21 +44,19 @@ export function DailyReport() {
         const dateString = format(date, 'yyyy-MM-dd');
         
         const attendanceRef = collection(firestore, 'attendance');
-        const constraints: QueryConstraint[] = [
-            where('date', '==', dateString), 
-            where('status', '==', 'absent')
-        ];
+        // Simplified query: filter by date only on the server
+        const q = query(attendanceRef, where('date', '==', dateString));
         
-        const q = query(attendanceRef, ...constraints);
         const querySnapshot = await getDocs(q);
         
-        let absencesResult: DailyAbsenceRecord[] = [];
+        let results: DailyAbsenceRecord[] = [];
         querySnapshot.forEach(doc => {
-            const record = doc.data() as DailyAbsenceRecord;
-            absencesResult.push(record);
+            results.push(doc.data() as DailyAbsenceRecord);
         });
 
-        // Apply filters in client
+        // Apply all filters on the client side
+        let absencesResult = results.filter(r => r.status === 'absent');
+        
         if (grade !== 'all') {
             absencesResult = absencesResult.filter(r => r.grade === grade);
         }
