@@ -1,46 +1,70 @@
 /**
- * @fileoverview Firestore Security Rules for the school attendance tracker application.
+ * @file Firestore Security Rules
+ * @description This ruleset allows only authenticated users to manage students and attendance records.
  *
  * Core Philosophy:
- * This ruleset prioritizes secure access to student and attendance data.
- * The application uses anonymous authentication, so all rules are based on the assumption that request.auth will be null.
- * Since there are no authenticated users, all write operations are disabled and all data is effectively public.
+ *   This ruleset focuses on securing access to student and attendance data by requiring authentication.
+ *   All operations require a signed-in user.
+ *   The rules are designed to be permissive on data shapes during this prototyping phase, focusing on authorization.
  *
  * Data Structure:
- * The Firestore database consists of two top-level collections: 'students' and 'attendance'.
- * - /students/{studentId}: Stores student profile information.
- * - /attendance/{attendanceId}: Stores attendance records for students.
+ *   - /students/{studentId}: Stores individual student data.
+ *   - /attendance/{attendanceId}: Stores individual attendance records.
  *
  * Key Security Decisions:
- * - Anonymous Authentication: The app uses anonymous authentication; therefore, all writes are disabled by default.
- * - Public Read Access: Both collections are readable by everyone, including unauthenticated users.
+ *   - Anonymous authentication is enabled, so any signed-in user can create/modify/delete any student or attendance record.
+ *   - No specific ownership or roles are enforced in this initial version.
+ *
+ * Denormalization for Authorization:
+ *   No denormalization is needed at this stage, as authentication is the primary requirement.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Allows anyone to read student data.  Write access is denied for everyone, as the app uses anonymous auth.
+     * @description Controls access to the 'students' collection.
      * @path /students/{studentId}
-     * @allow (get, list): Any user can read student data, even without authentication.
-     * @deny (create, update, delete): No one can create, update, or delete student data.
-     * @principle Allows public read access for student information.
+     * @allow (create) Authenticated user can create student.
+     * @deny  (create) Unauthenticated user cannot create student.
+     * @allow (get, list) Authenticated user can read student data.
+     * @deny (get, list) Unauthenticated user cannot read student data.
+     * @allow (update) Authenticated user can update student data.
+     * @deny (update) Unauthenticated user cannot update student data.
+     * @allow (delete) Authenticated user can delete student data.
+     * @deny (delete) Unauthenticated user cannot delete student data.
+     * @principle Requires authentication for all operations.
      */
     match /students/{studentId} {
-      allow get, list: if true;
-      allow create, update, delete: if false;
+      allow get, list: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && resource != null;
+      allow delete: if isSignedIn() && resource != null;
     }
 
     /**
-     * @description Allows anyone to read attendance records. Write access is denied for everyone.
+     * @description Controls access to the 'attendance' collection.
      * @path /attendance/{attendanceId}
-     * @allow (get, list): Any user can read attendance records, even without authentication.
-     * @deny (create, update, delete): No one can create, update, or delete attendance records.
-     * @principle Allows public read access for attendance records.
+     * @allow (create) Authenticated user can create attendance record.
+     * @deny  (create) Unauthenticated user cannot create attendance record.
+     * @allow (get, list) Authenticated user can read attendance data.
+     * @deny (get, list) Unauthenticated user cannot read attendance data.
+     * @allow (update) Authenticated user can update attendance data.
+     * @deny (update) Unauthenticated user cannot update attendance data.
+     * @allow (delete) Authenticated user can delete attendance data.
+     * @deny (delete) Unauthenticated user cannot delete attendance data.
+     * @principle Requires authentication for all operations.
      */
     match /attendance/{attendanceId} {
-      allow get, list: if true;
-      allow create, update, delete: if false;
+      allow get, list: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && resource != null;
+      allow delete: if isSignedIn() && resource != null;
     }
+  }
+
+  // Helper function to determine if a user is signed in.
+  function isSignedIn() {
+    return request.auth != null;
   }
 }
