@@ -17,9 +17,18 @@ type GroupedStudents = {
 async function getStudentsAndAttendance() {
     const { firestore } = initializeFirebaseOnServer();
     const studentsRef = collection(firestore, 'students');
-    const studentsQuery = query(studentsRef, orderBy('grade'), orderBy('name'));
+    // Firestore requires a composite index for multiple orderBy clauses.
+    // To avoid this, we order by name here and then sort by grade in JavaScript.
+    const studentsQuery = query(studentsRef, orderBy('name'));
     const studentsSnap = await getDocs(studentsQuery);
     const students: Student[] = studentsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Student));
+
+    // Sort by grade, then by name (already sorted by name from query)
+    students.sort((a, b) => {
+        if (a.grade < b.grade) return -1;
+        if (a.grade > b.grade) return 1;
+        return 0;
+    });
 
     const groupedStudents = students.reduce((acc, student) => {
         const { grade } = student;
