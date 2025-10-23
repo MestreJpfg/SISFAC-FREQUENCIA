@@ -44,7 +44,7 @@ export function DailyReport() {
         const dateString = format(date, 'yyyy-MM-dd');
         
         const attendanceRef = collection(firestore, 'attendance');
-        // Simplified query: filter by date only on the server
+        // Simplified query: filter by date only
         const q = query(attendanceRef, where('date', '==', dateString));
         
         const querySnapshot = await getDocs(q);
@@ -80,6 +80,7 @@ export function DailyReport() {
         });
     };
 
+    // Auto-search on initial load with today's date
     useEffect(() => {
         if (firestore) {
             handleSearch();
