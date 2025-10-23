@@ -1,0 +1,112 @@
+{
+  "entities": {
+    "Student": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Student",
+      "type": "object",
+      "description": "Represents a student in the school attendance tracker.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Student entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The student's full name."
+        },
+        "studentId": {
+          "type": "string",
+          "description": "The student's unique ID number, assigned by the school."
+        },
+        "class": {
+          "type": "string",
+          "description": "The class or grade the student is in."
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "studentId",
+        "class"
+      ]
+    },
+    "AttendanceRecord": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "AttendanceRecord",
+      "type": "object",
+      "description": "Represents a single attendance record for a student on a specific date.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the AttendanceRecord entity."
+        },
+        "studentId": {
+          "type": "string",
+          "description": "Reference to Student. (Relationship: Student 1:N AttendanceRecord)"
+        },
+        "date": {
+          "type": "string",
+          "description": "The date of the attendance record.",
+          "format": "date-time"
+        },
+        "present": {
+          "type": "boolean",
+          "description": "Indicates whether the student was present (true) or absent (false)."
+        },
+        "excuse": {
+          "type": "string",
+          "description": "Optional explanation of the absence."
+        }
+      },
+      "required": [
+        "id",
+        "studentId",
+        "date",
+        "present"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/students/{studentId}",
+        "definition": {
+          "entityName": "Student",
+          "schema": {
+            "$ref": "#/backend/entities/Student"
+          },
+          "description": "Stores student data. The 'studentId' is used as the document ID.",
+          "params": [
+            {
+              "name": "studentId",
+              "description": "The unique ID of the student."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/attendance_records/{attendanceRecordId}",
+        "definition": {
+          "entityName": "AttendanceRecord",
+          "schema": {
+            "$ref": "#/backend/entities/AttendanceRecord"
+          },
+          "description": "Stores attendance records. The 'attendanceRecordId' is used as the document ID. Each record links to a student via the 'studentId' field.",
+          "params": [
+            {
+              "name": "attendanceRecordId",
+              "description": "The unique ID of the attendance record."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "Given the requirements for a school attendance tracker with global access and the ability to import data from an Excel file, the following Firestore structure is recommended. Since no authentication is required and the database should be globally accessible, security rules will be minimal and focus on data validation rather than access control.\n\nThe core principle is structural segregation. We will have dedicated collections for `students` and `attendance_records`. \n\n**Authorization Independence**: Not applicable since there is no authentication and data is globally accessible.\n\n**QAPs (Rules are not Filters)**: Since all data is globally accessible and there are no user-specific views, the structure trivially supports `list` operations. Rules primarily validate data integrity and format.\n\nStudents are stored in a top-level `students` collection. Each document represents a student.  Attendance records are stored in a top-level `attendance_records` collection. Each document represents a single attendance record for a student on a specific date.\n\nThis structure avoids nested collections to simplify queries and minimize the need for complex indexing. Since there is no authentication, security rules are focused on data validation."
+  }
+}
