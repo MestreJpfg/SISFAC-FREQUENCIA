@@ -111,11 +111,20 @@ export function AttendanceForm() {
             return acc;
         }, {} as GroupedStudents);
     }, [filteredStudents]);
+    
+    const sortedGroups = useMemo(() => Object.keys(groupedStudents).sort((a, b) => {
+         const [aGrade, aRest] = a.split(' / ');
+         const [bGrade, bRest] = b.split(' / ');
+
+         const gradeCompare = aGrade.localeCompare(bGrade, undefined, { numeric: true });
+         if (gradeCompare !== 0) return gradeCompare;
+
+         return aRest.localeCompare(bRest);
+    }), [groupedStudents]);
 
     useEffect(() => {
-        const firstGroupKey = Object.keys(groupedStudents)[0];
-        setOpenAccordion(firstGroupKey);
-    }, [groupedStudents]);
+        setOpenAccordion(sortedGroups[0]);
+    }, [sortedGroups]);
 
     const handleToggle = (studentId: string, isPresent: boolean) => {
         setAttendance(prev => ({
@@ -141,18 +150,20 @@ export function AttendanceForm() {
             
             students.forEach(student => {
                 const status = formData.get(student.id) as 'present' | 'absent' | null;
-                const record = {
-                    studentId: student.id,
-                    studentName: student.name,
-                    date: today,
-                    status: status || 'absent',
-                    grade: student.grade,
-                    class: student.class,
-                    shift: student.shift,
-                    ensino: student.ensino,
-                };
-                const newDocRef = doc(attendanceRef);
-                batch.set(newDocRef, record);
+                if (status) { // Only write if student has a status (i.e. is visible in the form)
+                    const record = {
+                        studentId: student.id,
+                        studentName: student.name,
+                        date: today,
+                        status: status,
+                        grade: student.grade,
+                        class: student.class,
+                        shift: student.shift,
+                        ensino: student.ensino,
+                    };
+                    const newDocRef = doc(attendanceRef);
+                    batch.set(newDocRef, record);
+                }
             });
 
             await batch.commit();
@@ -184,7 +195,10 @@ export function AttendanceForm() {
         event.preventDefault();
         const formData = new FormData();
         Object.entries(attendance).forEach(([studentId, status]) => {
-            formData.append(studentId, status);
+            // Check if the student is part of the currently filtered students
+            if (filteredStudents.some(s => s.id === studentId)) {
+                 formData.append(studentId, status);
+            }
         });
 
         startTransition(() => {
@@ -217,10 +231,8 @@ export function AttendanceForm() {
         )
     }
 
-
-    const presentCount = Object.values(attendance).filter(s => s === 'present').length;
-    const absentCount = (students?.length || 0) - presentCount;
-    const sortedGroups = Object.keys(groupedStudents); 
+    const presentCount = Object.entries(attendance).filter(([id, status]) => status === 'present' && filteredStudents.some(s => s.id === id)).length;
+    const absentCount = filteredStudents.length - presentCount;
 
     return (
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -297,3 +309,5 @@ export function AttendanceForm() {
         </form>
     );
 }
+
+    
