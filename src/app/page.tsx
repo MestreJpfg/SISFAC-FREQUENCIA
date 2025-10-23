@@ -6,13 +6,6 @@ import Link from "next/link";
 export default function Home() {
   const features = [
     {
-      title: "Importar Alunos",
-      description: "Carregue um arquivo Excel para criar seu banco de dados de alunos.",
-      icon: <FileUp className="h-8 w-8 text-primary" />,
-      href: "/import",
-      cta: "Começar Importação"
-    },
-    {
       title: "Marcar Frequência",
       description: "Marque a presença diária dos alunos de forma rápida e fácil.",
       icon: <Users className="h-8 w-8 text-primary" />,
@@ -25,6 +18,13 @@ export default function Home() {
       icon: <FileText className="h-8 w-8 text-primary" />,
       href: "/reports",
       cta: "Ver Relatórios"
+    },
+    {
+      title: "Importar Alunos",
+      description: "Carregue um arquivo Excel para criar seu banco de dados de alunos.",
+      icon: <FileUp className="h-8 w-8 text-primary" />,
+      href: "/import",
+      cta: "Começar Importação"
     },
   ];
 
