@@ -1,6 +1,6 @@
 "use server";
 
-import { collection, writeBatch, getDocs, doc, deleteDoc } from "firebase/firestore";
+import { collection, writeBatch, getDocs, doc, deleteDoc, addDoc } from "firebase/firestore";
 import * as xlsx from "xlsx";
 import { db } from "@/lib/firebase";
 
@@ -22,29 +22,34 @@ export async function uploadStudents(formData: FormData) {
       return { error: "O arquivo Excel está vazio ou em formato incorreto." };
     }
 
-    // Etapa 2: Excluir todos os alunos existentes
+    // Etapa 2: Excluir todos os alunos existentes (de forma mais segura)
     const studentsRef = collection(db, "students");
     const existingStudentsSnap = await getDocs(studentsRef);
     if (!existingStudentsSnap.empty) {
-      const deleteBatch = writeBatch(db);
-      existingStudentsSnap.forEach(doc => deleteBatch.delete(doc.ref));
-      await deleteBatch.commit();
+        // Usar um lote para exclusão é bom, mas se houver mais de 500 alunos, falhará.
+        // Vamos excluir um por um para garantir.
+        for (const studentDoc of existingStudentsSnap.docs) {
+            await deleteDoc(doc(db, "students", studentDoc.id));
+        }
     }
 
     // Etapa 3: Adicionar os novos alunos
-    const addBatch = writeBatch(db);
     let studentCount = 0;
     // Pula a linha do cabeçalho (índice 0)
     for (let i = 1; i < data.length; i++) {
       const row = data[i];
+      // Garante que a linha não seja totalmente vazia
+      if (row.length === 0 || row.every(cell => cell === null || cell === '')) {
+        continue;
+      }
+      
       const name = row[0]; // Coluna 1: Nome
       const grade = row[1]; // Coluna 2: Série
       const studentClass = row[2]; // Coluna 3: Turma
       const shift = row[3]; // Coluna 4: Turno
 
       if (name && typeof name === 'string' && name.trim() !== '') {
-        const studentDocRef = doc(studentsRef); // Auto-generate ID
-        addBatch.set(studentDocRef, {
+        await addDoc(studentsRef, {
           name: name.trim(),
           grade: grade?.toString().trim() ?? "N/A",
           class: studentClass?.toString().trim() ?? "N/A",
@@ -58,11 +63,10 @@ export async function uploadStudents(formData: FormData) {
         return { error: "Nenhum aluno válido encontrado no arquivo. Verifique se a primeira coluna contém nomes." };
     }
 
-    await addBatch.commit();
-
     return { success: `${studentCount} alunos importados com sucesso!` };
   } catch (e) {
     console.error("Error uploading students:", e);
-    return { error: "Ocorreu um erro ao processar o arquivo. Verifique se é um arquivo Excel válido." };
+    const errorMessage = e instanceof Error ? e.message : "Ocorreu um erro desconhecido.";
+    return { error: `Ocorreu um erro ao processar o arquivo: ${errorMessage}. Verifique se é um arquivo Excel válido.` };
   }
 }
