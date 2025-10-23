@@ -1,53 +1,49 @@
 /**
- * @fileoverview Firestore Security Rules for Attendance Tracker application.
+ * @file Overview
+ * This ruleset enforces a public read-only model for student and attendance data.
+ * All `get` and `list` operations are publicly accessible without authentication.
+ * Write operations are disabled to prevent unauthorized data modification.
  *
- * Core Philosophy:
- * This ruleset provides completely open access to all data for prototyping purposes.
- * In the next phase, we will implement a more secure access model.
+ * @dataStructure
+ * - `/students/{studentId}`: Stores student profiles.
+ * - `/attendance/{attendanceId}`: Stores attendance records.
  *
- * Data Structure:
- * - /students/{studentId}: Stores student profile data.
- * - /attendance/{attendanceId}: Stores individual attendance records.
- *
- * Key Security Decisions:
- * - Currently, all read and write access is open to facilitate rapid prototyping.
- * - In a production environment, this would need to be locked down based on user roles or ownership.
- *
+ * @keySecurityDecisions
+ * - Public read access for all students and attendance records.
+ * - No write access is granted to any user.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Allows read and write access to student data for all users.
+     * @description Allows anyone to read (get and list) students, but prevents anyone from creating, updating, or deleting them.
      * @path /students/{studentId}
-     * @allow (create) Any user can create a student profile.
-     * @allow (get) Any user can read a student profile.
-     * @allow (list) Any user can list student profiles.
-     * @allow (update) Any user can update a student profile.
-     * @allow (delete) Any user can delete a student profile.
-     * @deny (none) This rule allows all read and write requests, so no requests are denied.
-     * @principle Open access for prototyping
+     * @allow (get, list) Any user can read student data.
+     * @deny (create, update, delete) No user can create, update or delete student data.
+     * @principle Public read, no writes allowed.
      */
     match /students/{studentId} {
-      allow get, list: if true;
-      allow create, update, delete: if true;
+      allow get: if true;
+      allow list: if true;
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
     }
 
     /**
-     * @description Allows read and write access to attendance records for all users.
+     * @description Allows anyone to read (get and list) attendance records, but prevents anyone from creating, updating, or deleting them.
      * @path /attendance/{attendanceId}
-     * @allow (create) Any user can create an attendance record.
-     * @allow (get) Any user can read an attendance record.
-     * @allow (list) Any user can list attendance records.
-     * @allow (update) Any user can update an attendance record.
-     * @allow (delete) Any user can delete an attendance record.
-     * @deny (none) This rule allows all read and write requests, so no requests are denied.
-     * @principle Open access for prototyping
+     * @allow (get, list) Any user can read attendance data.
+     * @deny (create, update, delete) No user can create, update or delete attendance data.
+     * @principle Public read, no writes allowed.
      */
     match /attendance/{attendanceId} {
-      allow get, list: if true;
-      allow create, update, delete: if true;
+      allow get: if true;
+      allow list: if true;
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
     }
   }
 }
