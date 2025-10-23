@@ -15,6 +15,7 @@ import type { AttendanceRecord, Student } from "@/lib/types";
 import { useFirebase, useCollection, useMemoFirebase } from "@/firebase";
 import { collection, getDocs, query, where, orderBy } from 'firebase/firestore';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 
 
 export function DailyReport() {
