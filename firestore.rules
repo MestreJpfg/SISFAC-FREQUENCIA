@@ -1,59 +1,49 @@
 /**
- * @fileoverview Firestore Security Rules for the School Attendance Tracker.
+ * @fileoverview Firestore Security Rules for the school attendance tracker.
  *
  * Core Philosophy:
- * This ruleset is in prototyping mode with open read access and limited write restrictions.
- * The application requires global read access, so read rules are permissive.
- * Write rules enforce basic integrity constraints.
+ * This ruleset is in prototyping mode to allow any read and write operations.
+ * This will be updated later to improve the security.
  *
  * Data Structure:
- * - /students/{studentId}: Stores student profiles, with the studentId as the document ID.
- * - /attendance_records/{attendanceRecordId}: Stores attendance records, linked to students via the 'studentId' field.
+ * - /students/{studentId}: Stores student data, with 'studentId' as the document ID.
+ * - /attendance_records/{attendanceRecordId}: Stores attendance records, with 'attendanceRecordId' as the document ID.
  *
  * Key Security Decisions:
- * - Global read access is enabled for both `students` and `attendance_records` collections.
- * - Data validation is minimal. Only relational integrity (studentId consistency) is enforced on writes.
+ * - All read and write operations are currently allowed.
  *
  * Denormalization for Authorization:
- *   Not applicable in this ruleset, as authorization is not based on user roles or ownership.
+ * - Not applicable, as no authorization is being enforced yet.
  *
  * Structural Segregation:
- *   The database uses separate top-level collections for `students` and `attendance_records` to simplify queries and minimize indexing complexity.
+ * - Students and attendance records are stored in separate, top-level collections.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Allows read access to student profiles and enforces studentId consistency on create.
+     * @description Allows any read and write operations to students collection.
      * @path /students/{studentId}
-     * @allow (get, list): Any user can read student profiles.
-     * @allow (create): Any user can create a student profile, provided the studentId in the document matches the document ID.
-     * @allow (update, delete): No one can update or delete student profiles.
-     * @deny (create): if request.resource.data.id != request.resource.id
-     * @principle Allows global read access and enforces data consistency for student IDs.
+     * @allow (get, list, create, update, delete) - Any user can perform any operation.
+     * @deny None
+     * @principle Prototyping mode: all access is allowed.
      */
     match /students/{studentId} {
       allow get, list: if true;
-      allow create: if request.resource.data.id == studentId;
-      allow update: if false;
-      allow delete: if false;
+      allow create, update, delete: if true;
     }
 
     /**
-     * @description Allows read access to attendance records and enforces studentId consistency on create.
+     * @description Allows any read and write operations to attendance records collection.
      * @path /attendance_records/{attendanceRecordId}
-     * @allow (get, list): Any user can read attendance records.
-     * @allow (create): Any user can create an attendance record.
-     * @allow (update, delete): No one can update or delete attendance records.
-     * @deny (create): if request.resource.data.studentId == null;
-     * @principle Allows global read access and ensures new attendance records have a studentId.
+     * @allow (get, list, create, update, delete) - Any user can perform any operation.
+     * @deny None
+     * @principle Prototyping mode: all access is allowed.
      */
     match /attendance_records/{attendanceRecordId} {
       allow get, list: if true;
-      allow create: if request.resource.data.studentId != null;
-      allow update: if false;
-      allow delete: if false;
+      allow create, update, delete: if true;
     }
   }
 }
