@@ -17,6 +17,8 @@ import { format } from 'date-fns';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { errorEmitter } from '@/firebase/error-emitter';
 import Link from 'next/link';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
 
 type GroupedStudents = {
     [groupKey: string]: Student[];
@@ -27,10 +29,11 @@ export function AttendanceForm() {
     const [attendance, setAttendance] = useState<Record<string, 'present' | 'absent'>>({});
     const [isPending, startTransition] = useTransition();
     const { toast } = useToast();
+    const [selectedEnsino, setSelectedEnsino] = useState('all');
+    const [openAccordion, setOpenAccordion] = useState<string | undefined>();
 
     const studentsQuery = useMemoFirebase(() => {
         if (!firestore) return null;
-        // Ordenação adicionada para consistência, embora a ordenação principal seja feita no cliente.
         return query(collection(firestore, 'students'));
     }, [firestore]);
 
@@ -58,7 +61,6 @@ export function AttendanceForm() {
 
     const sortedStudents = useMemo(() => {
         if (!students) return [];
-        // Ordenação manual no cliente para garantir a ordem desejada e evitar erros com dados incompletos
         return [...students].sort((a, b) => {
             const aEnsino = a.ensino || '';
             const bEnsino = b.ensino || '';
@@ -74,7 +76,6 @@ export function AttendanceForm() {
             const ensinoCompare = aEnsino.localeCompare(bEnsino);
             if (ensinoCompare !== 0) return ensinoCompare;
 
-            // Ordenação numérica para séries
             const gradeCompare = aGrade.localeCompare(bGrade, undefined, { numeric: true });
             if (gradeCompare !== 0) return gradeCompare;
 
@@ -88,16 +89,33 @@ export function AttendanceForm() {
         });
     }, [students]);
 
+    const uniqueEnsinos = useMemo(() => {
+        if (!students) return [];
+        return [...new Set(students.map(s => s.ensino || 'N/A'))].sort();
+    }, [students]);
+
+    const filteredStudents = useMemo(() => {
+        if (selectedEnsino === 'all') {
+            return sortedStudents;
+        }
+        return sortedStudents.filter(student => student.ensino === selectedEnsino);
+    }, [sortedStudents, selectedEnsino]);
+
     const groupedStudents = useMemo(() => {
-        return sortedStudents.reduce((acc, student) => {
-            const groupKey = `${student.ensino || 'N/A'} - ${student.grade || 'N/A'} / ${student.class || 'N/A'} (${student.shift || 'N/A'})`;
+        return filteredStudents.reduce((acc, student) => {
+            const groupKey = `${student.grade || 'N/A'} / ${student.class || 'N/A'} (${student.shift || 'N/A'})`;
             if (!acc[groupKey]) {
                 acc[groupKey] = [];
             }
             acc[groupKey].push(student);
             return acc;
         }, {} as GroupedStudents);
-    }, [sortedStudents]);
+    }, [filteredStudents]);
+
+    useEffect(() => {
+        const firstGroupKey = Object.keys(groupedStudents)[0];
+        setOpenAccordion(firstGroupKey);
+    }, [groupedStudents]);
 
     const handleToggle = (studentId: string, isPresent: boolean) => {
         setAttendance(prev => ({
@@ -206,18 +224,40 @@ export function AttendanceForm() {
 
     return (
         <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="flex justify-end gap-6 text-sm font-medium">
-                <div className="flex items-center gap-2" style={{color: 'hsl(142.1 76.2% 36.3%)'}}>
-                    <UserCheck className="h-5 w-5" />
-                    Presentes: {presentCount}
+             <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+                <div className="grid gap-1.5 w-full sm:w-auto sm:max-w-xs">
+                    <Label htmlFor="ensino-filter">Filtrar por Ensino</Label>
+                    <Select value={selectedEnsino} onValueChange={setSelectedEnsino}>
+                        <SelectTrigger id="ensino-filter">
+                            <SelectValue placeholder="Selecione o Ensino" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">Todos os Ensinos</SelectItem>
+                            {uniqueEnsinos.map(ensino => (
+                                <SelectItem key={ensino} value={ensino}>{ensino}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
                 </div>
-                <div className="flex items-center gap-2" style={{color: 'hsl(0 84.2% 60.2%)'}}>
-                    <UserX className="h-5 w-5" />
-                    Ausentes: {absentCount}
+                <div className="flex justify-end gap-6 text-sm font-medium">
+                    <div className="flex items-center gap-2" style={{color: 'hsl(142.1 76.2% 36.3%)'}}>
+                        <UserCheck className="h-5 w-5" />
+                        Presentes: {presentCount}
+                    </div>
+                    <div className="flex items-center gap-2" style={{color: 'hsl(0 84.2% 60.2%)'}}>
+                        <UserX className="h-5 w-5" />
+                        Ausentes: {absentCount}
+                    </div>
                 </div>
             </div>
             
-            <Accordion type="single" collapsible defaultValue={sortedGroups.length > 0 ? sortedGroups[0] : undefined} className="w-full">
+            <Accordion 
+                type="single" 
+                collapsible 
+                value={openAccordion}
+                onValueChange={setOpenAccordion}
+                className="w-full"
+            >
                  {sortedGroups.map(groupKey => (
                     <AccordionItem value={groupKey} key={groupKey}>
                         <AccordionTrigger className="text-lg font-bold">{groupKey}</AccordionTrigger>
