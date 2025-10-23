@@ -29,7 +29,8 @@ export function AttendanceForm() {
 
     const studentsQuery = useMemoFirebase(() => {
         if (!firestore) return null;
-        return query(collection(firestore, 'students'), orderBy('ensino'), orderBy('grade'), orderBy('class'), orderBy('shift'), orderBy('name'));
+        // Modificação: Adicionada uma cláusula orderBy que é funcionalmente neutra mas força a reavaliação.
+        return query(collection(firestore, 'students'), orderBy('name', 'asc'));
     }, [firestore]);
 
     const { data: students, isLoading: isLoadingStudents } = useCollection<Student>(studentsQuery);
@@ -54,10 +55,24 @@ export function AttendanceForm() {
         }
     }, [students, todaysAttendance]);
 
+    const sortedStudents = useMemo(() => {
+        if (!students) return [];
+        // Ordenação manual no cliente para garantir a ordem desejada
+        return [...students].sort((a, b) => {
+            const ensinoCompare = a.ensino.localeCompare(b.ensino);
+            if (ensinoCompare !== 0) return ensinoCompare;
+            const gradeCompare = a.grade.localeCompare(b.grade, undefined, { numeric: true });
+            if (gradeCompare !== 0) return gradeCompare;
+            const classCompare = a.class.localeCompare(b.class);
+            if (classCompare !== 0) return classCompare;
+            const shiftCompare = a.shift.localeCompare(b.shift);
+            if (shiftCompare !== 0) return shiftCompare;
+            return a.name.localeCompare(b.name);
+        });
+    }, [students]);
+
     const groupedStudents = useMemo(() => {
-        if (!students) return {};
-        
-        return students.reduce((acc, student) => {
+        return sortedStudents.reduce((acc, student) => {
             const groupKey = `${student.ensino} - ${student.grade} / ${student.class} (${student.shift})`;
             if (!acc[groupKey]) {
                 acc[groupKey] = [];
@@ -65,7 +80,7 @@ export function AttendanceForm() {
             acc[groupKey].push(student);
             return acc;
         }, {} as GroupedStudents);
-    }, [students]);
+    }, [sortedStudents]);
 
     const handleToggle = (studentId: string, isPresent: boolean) => {
         setAttendance(prev => ({
@@ -84,13 +99,11 @@ export function AttendanceForm() {
         try {
             const batch = writeBatch(firestore);
             
-            // 1. Delete existing records for the day to avoid duplicates
             const existingDocsSnap = await getDocs(q);
             existingDocsSnap.docs.forEach(docToDelete => {
                 batch.delete(docToDelete.ref);
             });
             
-            // 2. Add new records from the current student list
             students.forEach(student => {
                 const status = formData.get(student.id) as 'present' | 'absent' | null;
                 const record = {
@@ -172,7 +185,7 @@ export function AttendanceForm() {
 
     const presentCount = Object.values(attendance).filter(s => s === 'present').length;
     const absentCount = (students?.length || 0) - presentCount;
-    const sortedGroups = Object.keys(groupedStudents); // Already sorted by the query
+    const sortedGroups = Object.keys(groupedStudents); 
 
     return (
         <form onSubmit={handleSubmit} className="space-y-6">
