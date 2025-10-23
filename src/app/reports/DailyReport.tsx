@@ -48,21 +48,28 @@ export function DailyReport() {
             where('date', '==', dateString), 
             where('status', '==', 'absent')
         ];
-
-        if (grade !== 'all') constraints.push(where('grade', '==', grade));
-        if (studentClass !== 'all') constraints.push(where('class', '==', studentClass));
-        if (shift !== 'all') constraints.push(where('shift', '==', shift));
         
         const q = query(attendanceRef, ...constraints);
         const querySnapshot = await getDocs(q);
         
-        const absences: DailyAbsenceRecord[] = [];
+        let absencesResult: DailyAbsenceRecord[] = [];
         querySnapshot.forEach(doc => {
             const record = doc.data() as DailyAbsenceRecord;
-            absences.push(record);
+            absencesResult.push(record);
         });
 
-        return absences.sort((a, b) => a.studentName.localeCompare(b.studentName));
+        // Apply filters in client
+        if (grade !== 'all') {
+            absencesResult = absencesResult.filter(r => r.grade === grade);
+        }
+        if (studentClass !== 'all') {
+            absencesResult = absencesResult.filter(r => r.class === studentClass);
+        }
+        if (shift !== 'all') {
+            absencesResult = absencesResult.filter(r => r.shift === shift);
+        }
+
+        return absencesResult.sort((a, b) => a.studentName.localeCompare(b.studentName));
     }
 
 
@@ -152,9 +159,9 @@ export function DailyReport() {
                                     {absences.map((record) => (
                                         <TableRow key={record.studentId}>
                                             <TableCell className="font-medium">{record.studentName}</TableCell>
-                                            <TableCell>{record.studentGrade}</TableCell>
-                                            <TableCell>{record.studentClass}</TableCell>
-                                            <TableCell>{record.studentShift}</TableCell>
+                                            <TableCell>{record.grade}</TableCell>
+                                            <TableCell>{record.class}</TableCell>
+                                            <TableCell>{record.shift}</TableCell>
                                         </TableRow>
                                     ))}
                                 </TableBody>
