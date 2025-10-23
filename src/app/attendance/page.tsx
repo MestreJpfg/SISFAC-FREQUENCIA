@@ -10,15 +10,29 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 
+type GroupedStudents = {
+    [grade: string]: Student[];
+}
+
 async function getStudentsAndAttendance() {
     const { firestore } = initializeFirebaseOnServer();
     const studentsRef = collection(firestore, 'students');
-    const studentsQuery = query(studentsRef, orderBy('name'));
+    const studentsQuery = query(studentsRef, orderBy('grade'), orderBy('name'));
     const studentsSnap = await getDocs(studentsQuery);
     const students: Student[] = studentsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Student));
 
+    const groupedStudents = students.reduce((acc, student) => {
+        const { grade } = student;
+        if (!acc[grade]) {
+            acc[grade] = [];
+        }
+        acc[grade].push(student);
+        return acc;
+    }, {} as GroupedStudents);
+
+
     if (students.length === 0) {
-        return { students: [], todaysAttendance: new Map() };
+        return { students: [], todaysAttendance: new Map(), groupedStudents: {} };
     }
 
     // This part runs on the server, so new Date() is fine.
@@ -33,11 +47,11 @@ async function getStudentsAndAttendance() {
         todaysAttendance.set(record.studentId, record.status);
     });
 
-    return { students, todaysAttendance };
+    return { students, todaysAttendance, groupedStudents };
 }
 
 export default async function AttendancePage() {
-    const { students, todaysAttendance } = await getStudentsAndAttendance();
+    const { students, todaysAttendance, groupedStudents } = await getStudentsAndAttendance();
     const todayString = format(new Date(), "eeee, dd 'de' MMMM 'de' yyyy", { locale: ptBR });
 
     if (students.length === 0) {
@@ -71,7 +85,11 @@ export default async function AttendancePage() {
                 </div>
             </CardHeader>
             <CardContent>
-                <AttendanceForm students={students} initialAttendance={Object.fromEntries(todaysAttendance)} />
+                <AttendanceForm 
+                    students={students} 
+                    groupedStudents={groupedStudents}
+                    initialAttendance={Object.fromEntries(todaysAttendance)} 
+                />
             </CardContent>
         </Card>
     );

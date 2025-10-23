@@ -8,15 +8,16 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Save, Loader2, UserCheck, UserX } from 'lucide-react';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Separator } from '@/components/ui/separator';
 
 interface AttendanceFormProps {
     students: Student[];
+    groupedStudents: { [grade: string]: Student[] };
     initialAttendance: Record<string, 'present' | 'absent'>;
 }
 
-export function AttendanceForm({ students, initialAttendance }: AttendanceFormProps) {
+export function AttendanceForm({ students, groupedStudents, initialAttendance }: AttendanceFormProps) {
     const [attendance, setAttendance] = useState<Record<string, 'present' | 'absent'>>(() => {
         const initial = { ...initialAttendance };
         students.forEach(student => {
@@ -45,13 +46,13 @@ export function AttendanceForm({ students, initialAttendance }: AttendanceFormPr
 
         startTransition(async () => {
             const result = await saveAttendance(formData, students);
-            if (result.error) {
+            if ('error' in result && result.error) {
                 toast({
                     variant: 'destructive',
                     title: 'Erro',
                     description: result.error,
                 });
-            } else {
+            } else if ('success' in result) {
                 toast({
                     title: 'Sucesso',
                     description: result.success,
@@ -62,6 +63,7 @@ export function AttendanceForm({ students, initialAttendance }: AttendanceFormPr
 
     const presentCount = Object.values(attendance).filter(s => s === 'present').length;
     const absentCount = students.length - presentCount;
+    const grades = Object.keys(groupedStudents).sort();
 
     return (
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -75,30 +77,40 @@ export function AttendanceForm({ students, initialAttendance }: AttendanceFormPr
                     Ausentes: {absentCount}
                 </div>
             </div>
-            <ScrollArea className="h-96 w-full rounded-md border">
-                <div className="p-1">
-                    {students.map((student, index) => (
-                        <div key={student.id}>
-                            <div className="flex items-center justify-between p-3 rounded-md hover:bg-accent/30 transition-colors">
-                                <Label htmlFor={student.id} className="cursor-pointer">
-                                    <p className="text-base font-medium">{student.name}</p>
-                                    <p className="text-sm font-normal text-muted-foreground">
-                                        {student.grade} - {student.class} ({student.shift})
-                                    </p>
-                                </Label>
-                                <Switch
-                                    id={student.id}
-                                    name={student.id}
-                                    checked={attendance[student.id] === 'present'}
-                                    onCheckedChange={(checked) => handleToggle(student.id, checked)}
-                                    aria-label={`Marcar presença para ${student.name}`}
-                                />
+            
+            <Accordion type="multiple" defaultValue={grades} className="w-full">
+                 {grades.map(grade => (
+                    <AccordionItem value={grade} key={grade}>
+                        <AccordionTrigger className="text-lg font-bold">{grade}</AccordionTrigger>
+                        <AccordionContent>
+                             <div className="p-1">
+                                {groupedStudents[grade].map((student, index) => (
+                                    <div key={student.id}>
+                                        <div className="flex items-center justify-between p-3 rounded-md hover:bg-accent/30 transition-colors">
+                                            <Label htmlFor={student.id} className="cursor-pointer">
+                                                <p className="text-base font-medium">{student.name}</p>
+                                                <p className="text-sm font-normal text-muted-foreground">
+                                                    {student.class} ({student.shift})
+                                                </p>
+                                            </Label>
+                                            <Switch
+                                                id={student.id}
+                                                name={student.id}
+                                                checked={attendance[student.id] === 'present'}
+                                                onCheckedChange={(checked) => handleToggle(student.id, checked)}
+                                                aria-label={`Marcar presença para ${student.name}`}
+                                            />
+                                        </div>
+                                        {index < groupedStudents[grade].length - 1 && <Separator />}
+                                    </div>
+                                ))}
                             </div>
-                            {index < students.length - 1 && <Separator />}
-                        </div>
-                    ))}
-                </div>
-            </ScrollArea>
+                        </AccordionContent>
+                    </AccordionItem>
+                ))}
+            </Accordion>
+
+
             <Button type="submit" disabled={isPending} className="w-full">
                 {isPending ? (
                     <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Salvando...</>
