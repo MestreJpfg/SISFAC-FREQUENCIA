@@ -107,12 +107,8 @@ export function AttendanceForm() {
     }, [students, activeEnsinoTab, activeTurnoTab]);
 
     useEffect(() => {
-        if (groupedAndSortedStudents.length > 0) {
-            setOpenAccordions([groupedAndSortedStudents[0].key]);
-        } else {
-            setOpenAccordions([]);
-        }
-    }, [groupedAndSortedStudents]);
+        setOpenAccordions([]);
+    }, [activeEnsinoTab, activeTurnoTab]);
 
 
     const handleToggle = (studentId: string, isPresent: boolean) => {
