@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition, useEffect, useMemo } from "react";
-import { format, getMonth, getYear, startOfMonth, endOfMonth } from "date-fns";
+import { format, getMonth, getYear, startOfMonth, endOfMonth } from "fns";
 import { ptBR } from 'date-fns/locale';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -74,35 +74,26 @@ export function MonthlyReport() {
         const startDate = startOfMonth(new Date(year, month));
         const endDate = endOfMonth(new Date(year, month));
 
-        // Get all student IDs for the filter
-        const studentIds = students.map(s => s.id);
-        if(studentIds.length === 0) return [];
-
+        const studentIdSet = new Set(students.map(s => s.id));
 
         const attendanceRef = collection(firestore, 'attendance');
-        // Firebase 'in' queries are limited to 30 items. We might need to chunk it.
-        const studentIdChunks: string[][] = [];
-        for (let i = 0; i < studentIds.length; i += 30) {
-            studentIdChunks.push(studentIds.slice(i, i + 30));
-        }
+        
+        const q = query(
+            attendanceRef,
+            where('date', '>=', format(startDate, 'yyyy-MM-dd')),
+            where('date', '<=', format(endDate, 'yyyy-MM-dd')),
+            where('status', '==', 'absent')
+        );
 
+        const querySnapshot = await getDocs(q);
         const absenceCounts = new Map<string, number>();
 
-        for (const chunk of studentIdChunks) {
-             const q = query(
-                attendanceRef,
-                where('date', '>=', format(startDate, 'yyyy-MM-dd')),
-                where('date', '<=', format(endDate, 'yyyy-MM-dd')),
-                where('status', '==', 'absent'),
-                where('studentId', 'in', chunk)
-            );
-
-            const querySnapshot = await getDocs(q);
-            querySnapshot.forEach(doc => {
-                const record = doc.data() as AttendanceRecord;
-                absenceCounts.set(record.studentId, (absenceCounts.get(record.studentId) || 0) + 1);
-            });
-        }
+        querySnapshot.forEach(doc => {
+            const record = doc.data() as AttendanceRecord;
+            if (studentIdSet.has(record.studentId)) {
+                 absenceCounts.set(record.studentId, (absenceCounts.get(record.studentId) || 0) + 1);
+            }
+        });
 
 
         const reportData: MonthlyAbsenceData[] = students.map(student => ({
@@ -242,4 +233,3 @@ export function MonthlyReport() {
             </CardContent>
         </Card>
     );
-}
