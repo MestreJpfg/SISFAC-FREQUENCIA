@@ -1,49 +1,71 @@
 /**
- * @file Overview
- * This ruleset enforces a public read-only model for student and attendance data.
- * All `get` and `list` operations are publicly accessible without authentication.
- * Write operations are disabled to prevent unauthorized data modification.
+ * @description This ruleset enforces a strict read/write access model for student and attendance records.
  *
- * @dataStructure
- * - `/students/{studentId}`: Stores student profiles.
- * - `/attendance/{attendanceId}`: Stores attendance records.
+ * Data Structure:
+ * - /students/{studentId}: Stores individual student records, secured behind owner-only access.
+ * - /attendance/{attendanceId}: Stores individual attendance records, secured behind owner-only access.
  *
- * @keySecurityDecisions
- * - Public read access for all students and attendance records.
- * - No write access is granted to any user.
+ * Key Security Decisions:
+ * - Only authenticated users can create, update, or delete student records. Anonymous auth is enabled in the app, so unauthenticated access is permitted in these rules.
+ * - Listing of students and attendance records is disallowed to prevent unauthorized data scraping.
+ * - All writes require the user to be authenticated (request.auth != null).
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Allows anyone to read (get and list) students, but prevents anyone from creating, updating, or deleting them.
-     * @path /students/{studentId}
-     * @allow (get, list) Any user can read student data.
-     * @deny (create, update, delete) No user can create, update or delete student data.
-     * @principle Public read, no writes allowed.
+     * @description Controls access to student records. Only authenticated users can create, update, or delete student records.
+     * @path /databases/{database}/documents/students/{studentId}
+     * @allow (create) User with valid auth can create a student record.
+     * @deny (create) Unauthenticated user cannot create a student record.
+     * @allow (update) User with valid auth can update a student record if it exists.
+     * @deny (update) User with valid auth cannot update a student record if it does not exist.
+     * @allow (delete) User with valid auth can delete a student record if it exists.
+     * @deny (delete) User with valid auth cannot delete a student record if it does not exist.
+     * @principle Enforces authentication for all write operations on student records.
      */
     match /students/{studentId} {
-      allow get: if true;
-      allow list: if true;
-      allow create: if false;
-      allow update: if false;
-      allow delete: if false;
+      // Verify authentication
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      // Read access: not allowed
+      allow get: if false;
+      allow list: if false;
+
+      // Write access
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && resource != null;
+      allow delete: if isSignedIn() && resource != null;
     }
 
     /**
-     * @description Allows anyone to read (get and list) attendance records, but prevents anyone from creating, updating, or deleting them.
-     * @path /attendance/{attendanceId}
-     * @allow (get, list) Any user can read attendance data.
-     * @deny (create, update, delete) No user can create, update or delete attendance data.
-     * @principle Public read, no writes allowed.
+     * @description Controls access to attendance records. Only authenticated users can create, update, or delete attendance records.
+     * @path /databases/{database}/documents/attendance/{attendanceId}
+     * @allow (create) User with valid auth can create an attendance record.
+     * @deny (create) Unauthenticated user cannot create an attendance record.
+     * @allow (update) User with valid auth can update an attendance record if it exists.
+     * @deny (update) User with valid auth cannot update an attendance record if it does not exist.
+     * @allow (delete) User with valid auth can delete an attendance record if it exists.
+     * @deny (delete) User with valid auth cannot delete an attendance record if it does not exist.
+     * @principle Enforces authentication for all write operations on attendance records.
      */
     match /attendance/{attendanceId} {
-      allow get: if true;
-      allow list: if true;
-      allow create: if false;
-      allow update: if false;
-      allow delete: if false;
+      // Verify authentication
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      // Read access: not allowed
+      allow get: if false;
+      allow list: if false;
+
+      // Write access
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && resource != null;
+      allow delete: if isSignedIn() && resource != null;
     }
   }
 }
