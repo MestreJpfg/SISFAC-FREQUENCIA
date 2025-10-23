@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useTransition, useEffect, useMemo } from "react";
@@ -42,27 +43,22 @@ export function DailyReport() {
         const dateString = format(date, 'yyyy-MM-dd');
         
         const attendanceRef = collection(firestore, 'attendance');
-        const constraints: QueryConstraint[] = [
-            where('date', '==', dateString),
-            where('status', '==', 'absent'),
-        ];
-
-        if (grade !== 'all') {
-            constraints.push(where('grade', '==', grade));
-        }
-        if (studentClass !== 'all') {
-            constraints.push(where('class', '==', studentClass));
-        }
-        if (shift !== 'all') {
-            constraints.push(where('shift', '==', shift));
-        }
-        
-        const q = query(attendanceRef, ...constraints, orderBy('studentName'));
+        const q = query(attendanceRef, where('date', '==', dateString));
         
         const querySnapshot = await getDocs(q);
         
         return querySnapshot.docs.map(doc => doc.data() as AttendanceRecord);
     }
+    
+    const filteredAbsences = useMemo(() => {
+        if (!absences) return [];
+        return absences
+            .filter(record => record.status === 'absent')
+            .filter(record => grade === 'all' || record.grade === grade)
+            .filter(record => studentClass === 'all' || record.class === studentClass)
+            .filter(record => shift === 'all' || record.shift === shift)
+            .sort((a, b) => a.studentName.localeCompare(b.studentName));
+    }, [absences, grade, studentClass, shift]);
 
 
     const handleSearch = () => {
@@ -81,15 +77,6 @@ export function DailyReport() {
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [firestore]);
-
-    // Re-run search when filters change
-    useEffect(() => {
-        if(searchedDate) { // only re-search if an initial search has been made
-            handleSearch();
-        }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [grade, studentClass, shift]);
-
 
     return (
         <Card>
@@ -144,7 +131,7 @@ export function DailyReport() {
                 ) : searchedDate && (
                     <div className="pt-4">
                         <h3 className="font-semibold mb-2">Ausentes em {format(searchedDate, "dd/MM/yyyy")}:</h3>
-                        {absences.length === 0 ? (
+                        {filteredAbsences.length === 0 ? (
                             <p className="text-muted-foreground text-center py-4">Nenhum aluno ausente para os filtros selecionados.</p>
                         ) : (
                             <ScrollArea className="h-96 rounded-md border">
@@ -158,7 +145,7 @@ export function DailyReport() {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {absences.map((record) => (
+                                    {filteredAbsences.map((record) => (
                                         <TableRow key={record.studentId}>
                                             <TableCell className="font-medium">{record.studentName}</TableCell>
                                             <TableCell>{record.grade}</TableCell>
