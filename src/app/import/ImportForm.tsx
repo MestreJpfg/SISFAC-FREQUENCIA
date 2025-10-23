@@ -1,14 +1,19 @@
 "use client";
 
 import { useState, useRef, useTransition } from 'react';
-import { uploadStudents } from '@/actions/upload-actions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Upload } from 'lucide-react';
+import { useFirebase } from '@/firebase';
+import { collection, writeBatch, getDocs, doc } from 'firebase/firestore';
+import * as xlsx from 'xlsx';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 export function ImportForm() {
+  const { firestore } = useFirebase();
   const [isPending, startTransition] = useTransition();
   const [fileName, setFileName] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -18,6 +23,78 @@ export function ImportForm() {
     const file = event.target.files?.[0];
     setFileName(file ? file.name : '');
   };
+
+  const uploadStudents = async (formData: FormData) => {
+    if (!firestore) return { error: "O Firestore não está disponível." };
+    
+    const file = formData.get("file") as File;
+    if (!file) {
+      return { error: "Nenhum arquivo enviado." };
+    }
+
+    try {
+      const bytes = await file.arrayBuffer();
+      const workbook = xlsx.read(bytes, { type: "array" });
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      const data = xlsx.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
+      
+      if (!data || data.length < 2) {
+        return { error: "O arquivo Excel está vazio ou em formato incorreto." };
+      }
+
+      const studentsRef = collection(firestore, "students");
+      const existingStudentsSnap = await getDocs(studentsRef);
+      const deleteBatch = writeBatch(firestore);
+      existingStudentsSnap.docs.forEach(studentDoc => {
+          deleteBatch.delete(doc(firestore, "students", studentDoc.id));
+      });
+      await deleteBatch.commit();
+
+      const addBatch = writeBatch(firestore);
+      let studentCount = 0;
+      for (let i = 1; i < data.length; i++) {
+        const row = data[i];
+        if (row.length === 0 || row.every(cell => cell === null || cell === '')) {
+          continue;
+        }
+        
+        const name = row[0];
+        const grade = row[1];
+        const studentClass = row[2];
+        const shift = row[3];
+
+        if (name && typeof name === 'string' && name.trim() !== '') {
+          const newStudentRef = doc(studentsRef);
+          addBatch.set(newStudentRef, {
+            name: name.trim(),
+            grade: grade?.toString().trim() ?? "N/A",
+            class: studentClass?.toString().trim() ?? "N/A",
+            shift: shift?.toString().trim() ?? "N/A",
+          });
+          studentCount++;
+        }
+      }
+
+      if (studentCount === 0) {
+          return { error: "Nenhum aluno válido encontrado no arquivo." };
+      }
+
+      await addBatch.commit();
+      return { success: `${studentCount} alunos importados com sucesso!` };
+
+    } catch (e: any) {
+        console.error("Error managing students:", e);
+        const permissionError = new FirestorePermissionError({
+            path: 'students',
+            operation: 'write',
+            requestResourceData: { info: "Batch write for student upload failed." }
+        });
+        errorEmitter.emit('permission-error', permissionError);
+        return { error: `Ocorreu um erro ao importar os alunos.` };
+    }
+  };
+
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();

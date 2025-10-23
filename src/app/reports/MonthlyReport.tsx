@@ -1,31 +1,85 @@
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
-import { format, getMonth, getYear } from "date-fns";
+import { useState, useTransition, useEffect, useMemo } from "react";
+import { format, getMonth, getYear, startOfMonth, endOfMonth } from "date-fns";
 import { ptBR } from 'date-fns/locale';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { getMonthlyAbsences, MonthlyAbsenceData } from "@/actions/report-actions";
-import type { Student } from "@/lib/types";
+import type { Student, AttendanceRecord } from "@/lib/types";
 import { Loader2, Search } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { TriangleAlert } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useFirebase, useCollection, useMemoFirebase } from "@/firebase";
+import { collection, getDocs, query, where, orderBy } from 'firebase/firestore';
+
+export interface MonthlyAbsenceData {
+    studentId: string;
+    studentName: string;
+    studentClass: string;
+    studentGrade: string;
+    studentShift: string;
+    absenceCount: number;
+}
 
 const months = Array.from({ length: 12 }, (_, i) => ({ value: i, label: format(new Date(2000, i), 'MMMM', {locale: ptBR}) }));
 const currentYear = getYear(new Date());
 const years = Array.from({ length: 5 }, (_, i) => currentYear - i);
 
-export function MonthlyReport({ students }: { students: Student[] }) {
+export function MonthlyReport() {
+    const { firestore } = useFirebase();
     const [month, setMonth] = useState<number>(getMonth(new Date()));
     const [year, setYear] = useState<number>(currentYear);
     const [report, setReport] = useState<MonthlyAbsenceData[]>([]);
     const [isPending, startTransition] = useTransition();
     const [searchedPeriod, setSearchedPeriod] = useState<string | null>(null);
 
+    const studentsQuery = useMemoFirebase(() => {
+        if (!firestore) return null;
+        return query(collection(firestore, 'students'), orderBy('name'));
+    }, [firestore]);
+
+    const { data: students, isLoading: isLoadingStudents } = useCollection<Student>(studentsQuery);
+
+    const getMonthlyAbsences = async (month: number, year: number, students: Student[]): Promise<MonthlyAbsenceData[]> => {
+        if (!firestore || students.length === 0) return [];
+        
+        const startDate = startOfMonth(new Date(year, month));
+        const endDate = endOfMonth(new Date(year, month));
+
+        const attendanceRef = collection(firestore, 'attendance');
+        const q = query(
+            attendanceRef,
+            where('date', '>=', format(startDate, 'yyyy-MM-dd')),
+            where('date', '<=', format(endDate, 'yyyy-MM-dd')),
+            where('status', '==', 'absent')
+        );
+
+        const querySnapshot = await getDocs(q);
+        const absenceCounts = new Map<string, number>();
+
+        querySnapshot.forEach(doc => {
+            const record = doc.data() as AttendanceRecord;
+            absenceCounts.set(record.studentId, (absenceCounts.get(record.studentId) || 0) + 1);
+        });
+
+        const reportData: MonthlyAbsenceData[] = students.map(student => ({
+            studentId: student.id,
+            studentName: student.name,
+            studentClass: student.class,
+            studentGrade: student.grade,
+            studentShift: student.shift,
+            absenceCount: absenceCounts.get(student.id) || 0,
+        }))
+         .sort((a, b) => b.absenceCount - a.absenceCount || a.studentName.localeCompare(b.studentName));
+
+        return reportData;
+    }
+
     const handleSearch = () => {
+        if (!students) return;
         setSearchedPeriod(`${months.find(m => m.value === month)?.label}/${year}`);
         startTransition(async () => {
             const result = await getMonthlyAbsences(month, year, students);
@@ -34,17 +88,31 @@ export function MonthlyReport({ students }: { students: Student[] }) {
     };
     
     useEffect(() => {
-        handleSearch();
+        if (firestore && students) {
+            handleSearch();
+        }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [firestore, students]);
 
-    if (students.length === 0 && !isPending) {
+    if (isLoadingStudents) {
          return (
-             <Alert>
-                <TriangleAlert className="h-4 w-4" />
-                <AlertTitle>Nenhum Aluno</AlertTitle>
-                <AlertDescription>Não há dados de alunos para gerar o relatório. Por favor, importe os alunos primeiro.</AlertDescription>
-            </Alert>
+            <div className="flex justify-center items-center h-60">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+         )
+    }
+    
+    if ((!students || students.length === 0) && !isPending) {
+         return (
+            <Card>
+                <CardContent className="pt-6">
+                    <Alert>
+                        <TriangleAlert className="h-4 w-4" />
+                        <AlertTitle>Nenhum Aluno</AlertTitle>
+                        <AlertDescription>Não há dados de alunos para gerar o relatório. Por favor, importe os alunos primeiro.</AlertDescription>
+                    </Alert>
+                </CardContent>
+            </Card>
          )
     }
 

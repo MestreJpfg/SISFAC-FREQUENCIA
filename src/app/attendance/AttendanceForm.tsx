@@ -1,34 +1,86 @@
 "use client";
 
-import { useState, useTransition } from 'react';
-import type { Student } from '@/lib/types';
-import { saveAttendance } from '@/actions/attendance-actions';
+import { useState, useTransition, useMemo, useEffect } from 'react';
+import type { Student, AttendanceRecord } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Save, Loader2, UserCheck, UserX } from 'lucide-react';
+import { Save, Loader2, UserCheck, UserX, TriangleAlert } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Separator } from '@/components/ui/separator';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, writeBatch, doc, getDocs, query, where, orderBy, addDoc, deleteDoc } from 'firebase/firestore';
+import { format } from 'date-fns';
+import { FirestorePermissionError } from '@/firebase/errors';
+import { errorEmitter } from '@/firebase/error-emitter';
+import Link from 'next/link';
 
-interface AttendanceFormProps {
-    students: Student[];
-    groupedStudents: { [grade: string]: Student[] };
-    initialAttendance: Record<string, 'present' | 'absent'>;
+type GroupedStudents = {
+    [grade: string]: Student[];
 }
 
-export function AttendanceForm({ students, groupedStudents, initialAttendance }: AttendanceFormProps) {
-    const [attendance, setAttendance] = useState<Record<string, 'present' | 'absent'>>(() => {
-        const initial = { ...initialAttendance };
-        students.forEach(student => {
-            if (!initial[student.id]) {
-                initial[student.id] = 'present';
-            }
-        });
-        return initial;
-    });
+export function AttendanceForm() {
+    const { firestore } = useFirebase();
+    const [attendance, setAttendance] = useState<Record<string, 'present' | 'absent'>>({});
     const [isPending, startTransition] = useTransition();
     const { toast } = useToast();
+
+    const studentsQuery = useMemoFirebase(() => {
+        if (!firestore) return null;
+        return query(collection(firestore, 'students'), orderBy('name'));
+    }, [firestore]);
+
+    const { data: students, isLoading: isLoadingStudents } = useCollection<Student>(studentsQuery);
+
+    const todayString = format(new Date(), 'yyyy-MM-dd');
+    const attendanceQuery = useMemoFirebase(() => {
+        if (!firestore) return null;
+        return query(collection(firestore, 'attendance'), where('date', '==', todayString));
+    }, [firestore, todayString]);
+
+    const { data: todaysAttendance, isLoading: isLoadingAttendance } = useCollection<AttendanceRecord>(attendanceQuery);
+
+    useEffect(() => {
+        if (students && todaysAttendance) {
+            const initialAttendance: Record<string, 'present' | 'absent'> = {};
+            const todaysAttendanceMap = new Map(todaysAttendance.map(att => [att.studentId, att.status]));
+
+            students.forEach(student => {
+                initialAttendance[student.id] = todaysAttendanceMap.get(student.id) || 'present';
+            });
+            setAttendance(initialAttendance);
+        } else if (students) {
+             const initialAttendance: Record<string, 'present' | 'absent'> = {};
+             students.forEach(student => {
+                initialAttendance[student.id] = 'present';
+            });
+            setAttendance(initialAttendance);
+        }
+    }, [students, todaysAttendance]);
+
+    const groupedStudents = useMemo(() => {
+        if (!students) return {};
+        
+        const sortedStudents = [...students].sort((a, b) => {
+            // Simple string sort for grade (e.g., "1º Ano", "2º Ano", "9º Ano")
+            const gradeA = a.grade.padStart(2, '0');
+            const gradeB = b.grade.padStart(2, '0');
+            if (gradeA < gradeB) return -1;
+            if (gradeA > gradeB) return 1;
+            return 0;
+        });
+
+        return sortedStudents.reduce((acc, student) => {
+            const { grade } = student;
+            if (!acc[grade]) {
+                acc[grade] = [];
+            }
+            acc[grade].push(student);
+            return acc;
+        }, {} as GroupedStudents);
+    }, [students]);
 
     const handleToggle = (studentId: string, isPresent: boolean) => {
         setAttendance(prev => ({
@@ -37,6 +89,59 @@ export function AttendanceForm({ students, groupedStudents, initialAttendance }:
         }));
     };
 
+    const saveAttendance = async (formData: FormData) => {
+        if (!firestore || !students) return;
+        
+        const today = format(new Date(), 'yyyy-MM-dd');
+        const attendanceRef = collection(firestore, "attendance");
+        const q = query(attendanceRef, where("date", "==", today));
+
+        try {
+            // 1. Delete existing records for the day
+            const existingDocsSnap = await getDocs(q);
+            const batch = writeBatch(firestore);
+            existingDocsSnap.docs.forEach(docToDelete => {
+                batch.delete(docToDelete.ref);
+            });
+            
+            // 2. Add new records
+            students.forEach(student => {
+                const status = formData.get(student.id) as 'present' | 'absent' | null;
+                const record = {
+                    studentId: student.id,
+                    studentName: student.name,
+                    date: today,
+                    status: status || 'absent',
+                };
+                const newDocRef = doc(attendanceRef);
+                batch.set(newDocRef, record);
+            });
+
+            await batch.commit();
+
+            toast({
+                title: 'Sucesso',
+                description: "Frequência salva com sucesso!",
+            });
+
+        } catch (e: any) {
+             console.error("Error saving attendance:", e);
+             const permissionError = new FirestorePermissionError({
+                path: attendanceRef.path,
+                operation: 'write',
+                requestResourceData: { info: "Batch write for attendance failed." }
+            });
+            errorEmitter.emit('permission-error', permissionError);
+             
+             toast({
+                 variant: 'destructive',
+                 title: 'Erro',
+                 description: "Falha ao salvar a frequência. Verifique as permissões e tente novamente.",
+             });
+        }
+    };
+
+
     const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
         const formData = new FormData();
@@ -44,26 +149,40 @@ export function AttendanceForm({ students, groupedStudents, initialAttendance }:
             formData.append(studentId, status);
         });
 
-        startTransition(async () => {
-            const result = await saveAttendance(formData, students);
-            if ('error' in result && result.error) {
-                toast({
-                    variant: 'destructive',
-                    title: 'Erro',
-                    description: result.error,
-                });
-            } else if ('success' in result) {
-                toast({
-                    title: 'Sucesso',
-                    description: result.success,
-                });
-            }
+        startTransition(() => {
+            saveAttendance(formData);
         });
     };
+    
+    if (isLoadingStudents || isLoadingAttendance) {
+        return (
+            <div className="flex justify-center items-center h-60">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+        )
+    }
+
+    if (!students || students.length === 0) {
+        return (
+            <div className="max-w-2xl mx-auto">
+                <Alert variant="destructive">
+                    <TriangleAlert className="h-4 w-4" />
+                    <AlertTitle>Nenhum Aluno Encontrado</AlertTitle>
+                    <AlertDescription>
+                        O banco de dados de alunos está vazio. Por favor, importe um arquivo Excel primeiro.
+                        <Button asChild variant="link" className="p-0 h-auto ml-1 text-destructive">
+                            <Link href="/import">Ir para importação</Link>
+                        </Button>
+                    </AlertDescription>
+                </Alert>
+            </div>
+        )
+    }
+
 
     const presentCount = Object.values(attendance).filter(s => s === 'present').length;
     const absentCount = students.length - presentCount;
-    const grades = Object.keys(groupedStudents).sort();
+    const grades = Object.keys(groupedStudents).sort((a,b) => a.localeCompare(b, undefined, { numeric: true }));
 
     return (
         <form onSubmit={handleSubmit} className="space-y-6">

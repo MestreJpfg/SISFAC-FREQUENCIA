@@ -1,23 +1,15 @@
+
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
-import { getAuth } from 'firebase/auth';
-import { firebaseConfig } from '@/firebase/config';
+import { firebaseConfig } from './config';
 
-// This function should only be used in server-side code (Server Components, API Routes, Server Actions)
+// This function should only be used in server-side code (Server Components, Route Handlers, etc.)
 export function initializeFirebaseOnServer() {
-  if (getApps().length === 0) {
-    const app = initializeApp(firebaseConfig);
-    return {
-      firebaseApp: app,
-      firestore: getFirestore(app),
-      auth: getAuth(app),
-    };
+  if (!getApps().length) {
+    const firebaseApp = initializeApp(firebaseConfig);
+    return { firestore: getFirestore(firebaseApp) };
   } else {
-    const app = getApp();
-    return {
-      firebaseApp: app,
-      firestore: getFirestore(app),
-      auth: getAuth(app),
-    };
+    const firebaseApp = getApp();
+    return { firestore: getFirestore(firebaseApp) };
   }
 }

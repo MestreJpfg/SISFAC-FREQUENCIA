@@ -1,27 +1,8 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DailyReport } from "./DailyReport";
 import { MonthlyReport } from "./MonthlyReport";
-import { collection, getDocs, orderBy, query } from 'firebase/firestore';
-import { initializeFirebaseOnServer } from '@/firebase/server-init';
-import type { Student } from '@/lib/types';
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
-
-async function getStudents() {
-    try {
-        const { firestore } = initializeFirebaseOnServer();
-        const studentsRef = collection(firestore, 'students');
-        const studentsQuery = query(studentsRef, orderBy('name'));
-        const studentsSnap = await getDocs(studentsQuery);
-        return studentsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Student));
-    } catch (error) {
-        console.error("Failed to fetch students:", error);
-        return [];
-    }
-}
 
 export default async function ReportsPage() {
-    const students = await getStudents();
-
     return (
         <div className="w-full">
             <h1 className="text-3xl font-bold font-headline mb-6">Relatórios de Frequência</h1>
@@ -34,7 +15,7 @@ export default async function ReportsPage() {
                     <DailyReport />
                 </TabsContent>
                 <TabsContent value="monthly" className="mt-4">
-                   <MonthlyReport students={students} />
+                   <MonthlyReport />
                 </TabsContent>
             </Tabs>
         </div>

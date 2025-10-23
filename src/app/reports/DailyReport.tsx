@@ -9,18 +9,50 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { getDailyAbsences } from "@/actions/report-actions";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { AttendanceRecord, Student } from "@/lib/types";
+import { useFirebase } from "@/firebase";
+import { collection, getDocs, query, where } from 'firebase/firestore';
 
 
 type DailyAbsenceRecord = AttendanceRecord & { studentClass: string, studentGrade: string, studentShift: string };
 
 export function DailyReport() {
+    const { firestore } = useFirebase();
     const [date, setDate] = useState<Date | undefined>(new Date());
     const [absences, setAbsences] = useState<DailyAbsenceRecord[]>([]);
     const [isPending, startTransition] = useTransition();
     const [searchedDate, setSearchedDate] = useState<Date | null>(null);
+
+    const getDailyAbsences = async (date: Date): Promise<DailyAbsenceRecord[]> => {
+        if (!firestore) return [];
+        const dateString = format(date, 'yyyy-MM-dd');
+
+        const studentsSnap = await getDocs(collection(firestore, 'students'));
+        const studentMap = new Map<string, Student>();
+        studentsSnap.forEach(doc => studentMap.set(doc.id, { id: doc.id, ...doc.data()} as Student));
+
+        if (studentMap.size === 0) return [];
+
+        const attendanceRef = collection(firestore, 'attendance');
+        const q = query(attendanceRef, where('date', '==', dateString), where('status', '==', 'absent'));
+        const querySnapshot = await getDocs(q);
+        
+        const absences: DailyAbsenceRecord[] = [];
+        querySnapshot.forEach(doc => {
+            const record = doc.data() as AttendanceRecord;
+            const studentInfo = studentMap.get(record.studentId);
+            absences.push({
+                ...record,
+                studentClass: studentInfo?.class || 'N/A',
+                studentGrade: studentInfo?.grade || 'N/A',
+                studentShift: studentInfo?.shift || 'N/A',
+            });
+        });
+
+        return absences.sort((a, b) => a.studentName.localeCompare(b.studentName));
+    }
+
 
     const handleSearch = () => {
         if (!date) return;
@@ -32,9 +64,11 @@ export function DailyReport() {
     };
 
     useEffect(() => {
-        handleSearch();
+        if (firestore) {
+            handleSearch();
+        }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [firestore]);
 
     return (
         <Card>
