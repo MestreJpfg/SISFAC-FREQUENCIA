@@ -1,6 +1,6 @@
 "use server";
 
-import { collection, writeBatch, getDocs, doc } from "firebase/firestore";
+import { collection, writeBatch, getDocs, doc, deleteDoc } from "firebase/firestore";
 import * as xlsx from "xlsx";
 import { db } from "@/lib/firebase";
 
@@ -11,23 +11,28 @@ export async function uploadStudents(formData: FormData) {
   }
 
   try {
+    // Etapa 1: Ler o arquivo Excel
     const bytes = await file.arrayBuffer();
     const workbook = xlsx.read(bytes, { type: "array" });
     const sheetName = workbook.SheetNames[0];
     const worksheet = workbook.Sheets[sheetName];
-    // Use header: 1 para obter um array de arrays
     const data = xlsx.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
     
-    if (!data || data.length < 2) { // Precisa de cabeçalho + pelo menos uma linha de dados
+    if (!data || data.length < 2) {
       return { error: "O arquivo Excel está vazio ou em formato incorreto." };
     }
 
+    // Etapa 2: Excluir todos os alunos existentes
     const studentsRef = collection(db, "students");
-    const batch = writeBatch(db);
-
     const existingStudentsSnap = await getDocs(studentsRef);
-    existingStudentsSnap.forEach(doc => batch.delete(doc.ref));
+    if (!existingStudentsSnap.empty) {
+      const deleteBatch = writeBatch(db);
+      existingStudentsSnap.forEach(doc => deleteBatch.delete(doc.ref));
+      await deleteBatch.commit();
+    }
 
+    // Etapa 3: Adicionar os novos alunos
+    const addBatch = writeBatch(db);
     let studentCount = 0;
     // Pula a linha do cabeçalho (índice 0)
     for (let i = 1; i < data.length; i++) {
@@ -39,7 +44,7 @@ export async function uploadStudents(formData: FormData) {
 
       if (name && typeof name === 'string' && name.trim() !== '') {
         const studentDocRef = doc(studentsRef); // Auto-generate ID
-        batch.set(studentDocRef, {
+        addBatch.set(studentDocRef, {
           name: name.trim(),
           grade: grade?.toString().trim() ?? "N/A",
           class: studentClass?.toString().trim() ?? "N/A",
@@ -53,7 +58,7 @@ export async function uploadStudents(formData: FormData) {
         return { error: "Nenhum aluno válido encontrado no arquivo. Verifique se a primeira coluna contém nomes." };
     }
 
-    await batch.commit();
+    await addBatch.commit();
 
     return { success: `${studentCount} alunos importados com sucesso!` };
   } catch (e) {
