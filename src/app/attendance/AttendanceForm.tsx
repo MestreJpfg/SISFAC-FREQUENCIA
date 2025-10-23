@@ -18,7 +18,7 @@ import { errorEmitter } from '@/firebase/error-emitter';
 import Link from 'next/link';
 
 type GroupedStudents = {
-    [grade: string]: Student[];
+    [groupKey: string]: Student[];
 }
 
 export function AttendanceForm() {
@@ -63,21 +63,12 @@ export function AttendanceForm() {
     const groupedStudents = useMemo(() => {
         if (!students) return {};
         
-        const sortedStudents = [...students].sort((a, b) => {
-            // Simple string sort for grade (e.g., "1º Ano", "2º Ano", "9º Ano")
-            const gradeA = a.grade.padStart(2, '0');
-            const gradeB = b.grade.padStart(2, '0');
-            if (gradeA < gradeB) return -1;
-            if (gradeA > gradeB) return 1;
-            return 0;
-        });
-
-        return sortedStudents.reduce((acc, student) => {
-            const { grade } = student;
-            if (!acc[grade]) {
-                acc[grade] = [];
+        return students.reduce((acc, student) => {
+            const groupKey = `${student.grade} - ${student.class} (${student.shift})`;
+            if (!acc[groupKey]) {
+                acc[groupKey] = [];
             }
-            acc[grade].push(student);
+            acc[groupKey].push(student);
             return acc;
         }, {} as GroupedStudents);
     }, [students]);
@@ -112,6 +103,10 @@ export function AttendanceForm() {
                     studentName: student.name,
                     date: today,
                     status: status || 'absent',
+                    // Also store student info for easier filtering in reports
+                    grade: student.grade,
+                    class: student.class,
+                    shift: student.shift,
                 };
                 const newDocRef = doc(attendanceRef);
                 batch.set(newDocRef, record);
@@ -182,7 +177,7 @@ export function AttendanceForm() {
 
     const presentCount = Object.values(attendance).filter(s => s === 'present').length;
     const absentCount = students.length - presentCount;
-    const grades = Object.keys(groupedStudents).sort((a,b) => a.localeCompare(b, undefined, { numeric: true }));
+    const sortedGroups = Object.keys(groupedStudents).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
 
     return (
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -197,20 +192,17 @@ export function AttendanceForm() {
                 </div>
             </div>
             
-            <Accordion type="multiple" defaultValue={grades} className="w-full">
-                 {grades.map(grade => (
-                    <AccordionItem value={grade} key={grade}>
-                        <AccordionTrigger className="text-lg font-bold">{grade}</AccordionTrigger>
+            <Accordion type="multiple" defaultValue={[]} className="w-full">
+                 {sortedGroups.map(groupKey => (
+                    <AccordionItem value={groupKey} key={groupKey}>
+                        <AccordionTrigger className="text-lg font-bold">{groupKey}</AccordionTrigger>
                         <AccordionContent>
                              <div className="p-1">
-                                {groupedStudents[grade].map((student, index) => (
+                                {groupedStudents[groupKey].sort((a, b) => a.name.localeCompare(b.name)).map((student, index) => (
                                     <div key={student.id}>
                                         <div className="flex items-center justify-between p-3 rounded-md hover:bg-accent/30 transition-colors">
                                             <Label htmlFor={student.id} className="cursor-pointer">
                                                 <p className="text-base font-medium">{student.name}</p>
-                                                <p className="text-sm font-normal text-muted-foreground">
-                                                    {student.class} ({student.shift})
-                                                </p>
                                             </Label>
                                             <Switch
                                                 id={student.id}
@@ -220,7 +212,7 @@ export function AttendanceForm() {
                                                 aria-label={`Marcar presença para ${student.name}`}
                                             />
                                         </div>
-                                        {index < groupedStudents[grade].length - 1 && <Separator />}
+                                        {index < groupedStudents[groupKey].length - 1 && <Separator />}
                                     </div>
                                 ))}
                             </div>

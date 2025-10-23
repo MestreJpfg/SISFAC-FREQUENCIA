@@ -11,4 +11,7 @@ export interface AttendanceRecord {
   studentName: string;
   date: string; // YYYY-MM-DD
   status: 'present' | 'absent';
+  grade: string;
+  class: string;
+  shift: string;
 }

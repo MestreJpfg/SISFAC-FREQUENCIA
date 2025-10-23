@@ -13,7 +13,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { TriangleAlert } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useFirebase, useCollection, useMemoFirebase } from "@/firebase";
-import { collection, getDocs, query, where, orderBy } from 'firebase/firestore';
+import { collection, getDocs, query, where, orderBy, QueryConstraint } from 'firebase/firestore';
 
 export interface MonthlyAbsenceData {
     studentId: string;
@@ -36,12 +36,37 @@ export function MonthlyReport() {
     const [isPending, startTransition] = useTransition();
     const [searchedPeriod, setSearchedPeriod] = useState<string | null>(null);
 
+    const [grade, setGrade] = useState<string>('all');
+    const [studentClass, setStudentClass] = useState<string>('all');
+    const [shift, setShift] = useState<string>('all');
+
     const studentsQuery = useMemoFirebase(() => {
         if (!firestore) return null;
-        return query(collection(firestore, 'students'), orderBy('name'));
-    }, [firestore]);
+        let q = query(collection(firestore, 'students'));
+        const constraints: QueryConstraint[] = [];
+        if (grade !== 'all') constraints.push(where('grade', '==', grade));
+        if (studentClass !== 'all') constraints.push(where('class', '==', studentClass));
+        if (shift !== 'all') constraints.push(where('shift', '==', shift));
+        
+        if (constraints.length > 0) {
+            q = query(q, ...constraints);
+        }
+        q = query(q, orderBy('name'));
+
+        return q;
+    }, [firestore, grade, studentClass, shift]);
 
     const { data: students, isLoading: isLoadingStudents } = useCollection<Student>(studentsQuery);
+    const { data: allStudents } = useCollection<Student>(useMemoFirebase(() => firestore ? collection(firestore, 'students') : null, [firestore]));
+
+    const { grades, classes, shifts } = useMemo(() => {
+        if (!allStudents) return { grades: [], classes: [], shifts: [] };
+        const grades = [...new Set(allStudents.map(s => s.grade))].sort((a,b) => a.localeCompare(b, undefined, { numeric: true }));
+        const classes = [...new Set(allStudents.map(s => s.class))].sort();
+        const shifts = [...new Set(allStudents.map(s => s.shift))].sort();
+        return { grades, classes, shifts };
+    }, [allStudents]);
+
 
     const getMonthlyAbsences = async (month: number, year: number, students: Student[]): Promise<MonthlyAbsenceData[]> => {
         if (!firestore || students.length === 0) return [];
@@ -49,21 +74,36 @@ export function MonthlyReport() {
         const startDate = startOfMonth(new Date(year, month));
         const endDate = endOfMonth(new Date(year, month));
 
-        const attendanceRef = collection(firestore, 'attendance');
-        const q = query(
-            attendanceRef,
-            where('date', '>=', format(startDate, 'yyyy-MM-dd')),
-            where('date', '<=', format(endDate, 'yyyy-MM-dd')),
-            where('status', '==', 'absent')
-        );
+        // Get all student IDs for the filter
+        const studentIds = students.map(s => s.id);
+        if(studentIds.length === 0) return [];
 
-        const querySnapshot = await getDocs(q);
+
+        const attendanceRef = collection(firestore, 'attendance');
+        // Firebase 'in' queries are limited to 30 items. We might need to chunk it.
+        const studentIdChunks: string[][] = [];
+        for (let i = 0; i < studentIds.length; i += 30) {
+            studentIdChunks.push(studentIds.slice(i, i + 30));
+        }
+
         const absenceCounts = new Map<string, number>();
 
-        querySnapshot.forEach(doc => {
-            const record = doc.data() as AttendanceRecord;
-            absenceCounts.set(record.studentId, (absenceCounts.get(record.studentId) || 0) + 1);
-        });
+        for (const chunk of studentIdChunks) {
+             const q = query(
+                attendanceRef,
+                where('date', '>=', format(startDate, 'yyyy-MM-dd')),
+                where('date', '<=', format(endDate, 'yyyy-MM-dd')),
+                where('status', '==', 'absent'),
+                where('studentId', 'in', chunk)
+            );
+
+            const querySnapshot = await getDocs(q);
+            querySnapshot.forEach(doc => {
+                const record = doc.data() as AttendanceRecord;
+                absenceCounts.set(record.studentId, (absenceCounts.get(record.studentId) || 0) + 1);
+            });
+        }
+
 
         const reportData: MonthlyAbsenceData[] = students.map(student => ({
             studentId: student.id,
@@ -87,13 +127,6 @@ export function MonthlyReport() {
         });
     };
     
-    useEffect(() => {
-        if (firestore && students) {
-            handleSearch();
-        }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [firestore, students]);
-
     if (isLoadingStudents) {
          return (
             <div className="flex justify-center items-center h-60">
@@ -102,9 +135,13 @@ export function MonthlyReport() {
          )
     }
     
-    if ((!students || students.length === 0) && !isPending) {
+    if ((!allStudents || allStudents.length === 0) && !isPending) {
          return (
             <Card>
+                 <CardHeader>
+                    <CardTitle>Relatório Mensal de Ausências</CardTitle>
+                    <CardDescription>Selecione um mês e ano para ver o total de faltas por aluno.</CardDescription>
+                </CardHeader>
                 <CardContent className="pt-6">
                     <Alert>
                         <TriangleAlert className="h-4 w-4" />
@@ -120,31 +157,48 @@ export function MonthlyReport() {
         <Card>
             <CardHeader>
                 <CardTitle>Relatório Mensal de Ausências</CardTitle>
-                <CardDescription>Selecione um mês e ano para ver o total de faltas por aluno.</CardDescription>
+                <CardDescription>Selecione um período e filtre para ver o total de faltas por aluno.</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-                <div className="flex flex-wrap items-center gap-4">
+            <CardContent className="space-y-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                     <Select value={String(month)} onValueChange={(val) => setMonth(Number(val))}>
-                        <SelectTrigger className="w-[180px]">
-                            <SelectValue placeholder="Mês" />
-                        </SelectTrigger>
+                        <SelectTrigger className="capitalize"><SelectValue placeholder="Mês" /></SelectTrigger>
                         <SelectContent>
                             {months.map(m => <SelectItem key={m.value} value={String(m.value)} className="capitalize">{m.label}</SelectItem>)}
                         </SelectContent>
                     </Select>
                     <Select value={String(year)} onValueChange={(val) => setYear(Number(val))}>
-                        <SelectTrigger className="w-[120px]">
-                            <SelectValue placeholder="Ano" />
-                        </SelectTrigger>
+                        <SelectTrigger><SelectValue placeholder="Ano" /></SelectTrigger>
                         <SelectContent>
                             {years.map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
                         </SelectContent>
                     </Select>
-                    <Button onClick={handleSearch} disabled={isPending}>
-                        {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
-                        Gerar Relatório
-                    </Button>
+                     <Select value={grade} onValueChange={setGrade}>
+                        <SelectTrigger><SelectValue placeholder="Série" /></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">Todas as Séries</SelectItem>
+                            {grades.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
+                     <Select value={studentClass} onValueChange={setStudentClass}>
+                        <SelectTrigger><SelectValue placeholder="Turma" /></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">Todas as Turmas</SelectItem>
+                            {classes.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
+                    <Select value={shift} onValueChange={setShift}>
+                        <SelectTrigger><SelectValue placeholder="Turno" /></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">Todos os Turnos</SelectItem>
+                            {shifts.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
                 </div>
+                 <Button onClick={handleSearch} disabled={isPending} className="w-full sm:w-auto">
+                    {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
+                    Gerar Relatório
+                </Button>
 
                  {isPending ? (
                     <div className="flex justify-center items-center h-60">
@@ -153,8 +207,10 @@ export function MonthlyReport() {
                 ) : searchedPeriod && (
                     <div className="pt-4">
                          <h3 className="font-semibold mb-2 capitalize">Total de ausências em {searchedPeriod}:</h3>
-                         {report.every(r => r.absenceCount === 0) ? (
-                            <p className="text-muted-foreground text-center py-4">Nenhuma ausência registrada para o período selecionado.</p>
+                         {(!students || students.length === 0) ? (
+                            <p className="text-muted-foreground text-center py-4">Nenhum aluno encontrado para os filtros selecionados.</p>
+                         ) : report.every(r => r.absenceCount === 0) ? (
+                            <p className="text-muted-foreground text-center py-4">Nenhuma ausência registrada para o período e filtros selecionados.</p>
                         ) : (
                             <ScrollArea className="h-96 rounded-md border">
                             <Table>
