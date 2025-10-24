@@ -46,7 +46,7 @@ export function MonthlyReport() {
 
     const studentsQuery = useMemoFirebase(() => {
         if (!firestore) return null;
-        return query(collection(firestore, 'students'), orderBy('name'));
+        return query(collection(firestore, 'students'));
     }, [firestore]);
 
     const { data: allStudents, isLoading: isLoadingAllStudents } = useCollection<Student>(studentsQuery);
@@ -56,35 +56,38 @@ export function MonthlyReport() {
 
         const uniqueEnsinos = [...new Set(allStudents.map(s => s.ensino))].sort();
 
-        const studentsAfterEnsino = ensino === 'all' ? allStudents : allStudents.filter(s => s.ensino === ensino);
-        const uniqueGrades = [...new Set(studentsAfterEnsino.map(s => s.grade))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+        const studentsInEnsino = ensino === 'all' 
+            ? allStudents 
+            : allStudents.filter(s => s.ensino === ensino);
+        const uniqueGrades = [...new Set(studentsInEnsino.map(s => s.grade))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
 
-        const studentsAfterGrade = grade === 'all' ? studentsAfterEnsino : studentsAfterEnsino.filter(s => s.grade === grade);
-        const uniqueClasses = [...new Set(studentsAfterGrade.map(s => s.class))].sort();
-
-        const studentsAfterClass = studentClass === 'all' ? studentsAfterGrade : studentsAfterGrade.filter(s => s.class === studentClass);
-        const uniqueShifts = [...new Set(studentsAfterClass.map(s => s.shift))].sort();
+        const studentsInGrade = grade === 'all' 
+            ? studentsInEnsino 
+            : studentsInEnsino.filter(s => s.grade === grade);
+        const uniqueClasses = [...new Set(studentsInGrade.map(s => s.class))].sort();
+        
+        const studentsInClass = studentClass === 'all'
+            ? studentsInGrade
+            : studentsInGrade.filter(s => s.class === studentClass);
+        const uniqueShifts = [...new Set(studentsInClass.map(s => s.shift))].sort();
 
         return { ensinos: uniqueEnsinos, grades: uniqueGrades, classes: uniqueClasses, shifts: uniqueShifts };
     }, [allStudents, ensino, grade, studentClass]);
 
     useEffect(() => {
-        if(isLoadingAllStudents) return;
         setGrade('all');
         setStudentClass('all');
         setShift('all');
-    }, [ensino, isLoadingAllStudents]);
+    }, [ensino]);
 
     useEffect(() => {
-        if(isLoadingAllStudents) return;
         setStudentClass('all');
         setShift('all');
-    }, [ensino, grade, isLoadingAllStudents]);
+    }, [grade]);
 
     useEffect(() => {
-        if(isLoadingAllStudents) return;
         setShift('all');
-    }, [ensino, grade, studentClass, isLoadingAllStudents]);
+    }, [studentClass]);
 
 
     const filteredStudents = useMemo(() => {
@@ -106,7 +109,7 @@ export function MonthlyReport() {
 
         const absenceCounts = new Map<string, number>();
         const studentIdChunks: string[][] = [];
-        // Firestore 'in' query supports a maximum of 30 elements
+        // Firestore 'in' query supports a maximum of 30 elements in its array
         for (let i = 0; i < studentIds.length; i += 30) {
             studentIdChunks.push(studentIds.slice(i, i + 30));
         }

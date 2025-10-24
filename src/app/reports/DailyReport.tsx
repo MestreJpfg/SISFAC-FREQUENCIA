@@ -32,42 +32,45 @@ export function DailyReport() {
     const [studentClass, setStudentClass] = useState<string>('all');
     const [shift, setShift] = useState<string>('all');
 
-    const { data: allStudents, isLoading: isLoadingAllStudents } = useCollection<Student>(useMemoFirebase(() => firestore ? query(collection(firestore, 'students'), orderBy('ensino')) : null, [firestore]));
+    const { data: allStudents, isLoading: isLoadingAllStudents } = useCollection<Student>(useMemoFirebase(() => firestore ? query(collection(firestore, 'students')) : null, [firestore]));
 
     const { ensinos, grades, classes, shifts } = useMemo(() => {
         if (!allStudents) return { ensinos: [], grades: [], classes: [], shifts: [] };
 
         const uniqueEnsinos = [...new Set(allStudents.map(s => s.ensino))].sort();
 
-        const studentsAfterEnsino = ensino === 'all' ? allStudents : allStudents.filter(s => s.ensino === ensino);
-        const uniqueGrades = [...new Set(studentsAfterEnsino.map(s => s.grade))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+        const studentsInEnsino = ensino === 'all' 
+            ? allStudents 
+            : allStudents.filter(s => s.ensino === ensino);
+        const uniqueGrades = [...new Set(studentsInEnsino.map(s => s.grade))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
 
-        const studentsAfterGrade = grade === 'all' ? studentsAfterEnsino : studentsAfterEnsino.filter(s => s.grade === grade);
-        const uniqueClasses = [...new Set(studentsAfterGrade.map(s => s.class))].sort();
-
-        const studentsAfterClass = studentClass === 'all' ? studentsAfterGrade : studentsAfterGrade.filter(s => s.class === studentClass);
-        const uniqueShifts = [...new Set(studentsAfterClass.map(s => s.shift))].sort();
+        const studentsInGrade = grade === 'all' 
+            ? studentsInEnsino 
+            : studentsInEnsino.filter(s => s.grade === grade);
+        const uniqueClasses = [...new Set(studentsInGrade.map(s => s.class))].sort();
+        
+        const studentsInClass = studentClass === 'all'
+            ? studentsInGrade
+            : studentsInGrade.filter(s => s.class === studentClass);
+        const uniqueShifts = [...new Set(studentsInClass.map(s => s.shift))].sort();
 
         return { ensinos: uniqueEnsinos, grades: uniqueGrades, classes: uniqueClasses, shifts: uniqueShifts };
     }, [allStudents, ensino, grade, studentClass]);
     
     useEffect(() => {
-        if (isLoadingAllStudents) return;
         setGrade('all');
         setStudentClass('all');
         setShift('all');
-    }, [ensino, isLoadingAllStudents]);
+    }, [ensino]);
     
     useEffect(() => {
-        if (isLoadingAllStudents) return;
         setStudentClass('all');
         setShift('all');
-    }, [ensino, grade, isLoadingAllStudents]);
+    }, [grade]);
 
     useEffect(() => {
-        if (isLoadingAllStudents) return;
         setShift('all');
-    }, [ensino, grade, studentClass, isLoadingAllStudents]);
+    }, [studentClass]);
 
 
     const getAbsencesForDate = async (targetDate: Date): Promise<AttendanceRecord[]> => {
@@ -79,7 +82,7 @@ export function DailyReport() {
         
         const querySnapshot = await getDocs(q);
         
-        return querySnapshot.docs.map(doc => doc.data() as AttendanceRecord);
+        return querySnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as AttendanceRecord));
     }
     
     const filteredAbsences = useMemo(() => {

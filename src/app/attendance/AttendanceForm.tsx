@@ -68,26 +68,19 @@ export function AttendanceForm() {
     }, [students]);
 
     useEffect(() => {
-        if (students && students.length > 0) {
-            if (uniqueEnsinos.length > 0 && !activeEnsinoTab) {
-                setActiveEnsinoTab(uniqueEnsinos[0]);
-            }
-            if (uniqueTurnos.length > 0 && !activeTurnoTab) {
-                setActiveTurnoTab(uniqueTurnos[0]);
-            }
-        } else {
-            setActiveEnsinoTab(undefined);
-            setActiveTurnoTab(undefined);
+        if (uniqueEnsinos.length > 0 && !activeEnsinoTab) {
+            setActiveEnsinoTab(uniqueEnsinos[0]);
         }
-    }, [students, uniqueEnsinos, activeEnsinoTab, uniqueTurnos, activeTurnoTab]);
+        if (uniqueTurnos.length > 0 && !activeTurnoTab) {
+            setActiveTurnoTab(uniqueTurnos[0]);
+        }
+    }, [uniqueEnsinos, activeEnsinoTab, uniqueTurnos, activeTurnoTab]);
 
 
     const groupedAndSortedStudents = useMemo(() => {
         if (!students || !activeEnsinoTab || !activeTurnoTab) return [];
         
-        const filteredStudents = students
-            .filter(student => student.ensino === activeEnsinoTab)
-            .filter(student => student.shift === activeTurnoTab);
+        const filteredStudents = students.filter(student => student.ensino === activeEnsinoTab && student.shift === activeTurnoTab);
         
         const groups = filteredStudents.reduce((acc, student) => {
             const groupKey = `${student.grade || 'N/A'} / ${student.class || 'N/A'}`;
@@ -98,18 +91,19 @@ export function AttendanceForm() {
             return acc;
         }, {} as GroupedStudents);
 
+        Object.values(groups).forEach(group => {
+            group.sort((a,b) => (a.name || '').localeCompare(b.name || ''))
+        });
+
         return Object.entries(groups)
-            .map(([key, students]) => ({
-                key,
-                students: students.sort((a,b) => (a.name || '').localeCompare(b.name || ''))
-            }))
             .sort((a, b) => {
-                const [aGrade] = a.key.split(' / ');
-                const [bGrade] = b.key.split(' / ');
+                const [aGrade] = a[0].split(' / ');
+                const [bGrade] = b[0].split(' / ');
                 const gradeCompare = aGrade.localeCompare(bGrade, undefined, { numeric: true });
                 if (gradeCompare !== 0) return gradeCompare;
-                return a.key.localeCompare(b.key);
-            });
+                return a[0].localeCompare(b[0]);
+            })
+            .map(([key, students]) => ({ key, students }));
     }, [students, activeEnsinoTab, activeTurnoTab]);
 
     useEffect(() => {
@@ -252,13 +246,13 @@ export function AttendanceForm() {
                 onValueChange={setOpenAccordions}
                 className="w-full"
             >
-                {groupedAndSortedStudents.map(group => (
-                    <AccordionItem value={group.key} key={group.key}>
-                        <AccordionTrigger className="text-lg font-bold">{group.key}</AccordionTrigger>
+                {groupedAndSortedStudents.map(({ key, students: groupStudents }) => (
+                    <AccordionItem value={key} key={key}>
+                        <AccordionTrigger className="text-lg font-bold">{key}</AccordionTrigger>
                         <AccordionContent>
                             <div className="p-1 space-y-4">
                                 <div>
-                                    {group.students.map((student, index) => (
+                                    {groupStudents.map((student, index) => (
                                         <div key={student.id}>
                                             <div className="flex items-center justify-between p-3 rounded-md hover:bg-accent/30 transition-colors">
                                                 <Label htmlFor={student.id} className="cursor-pointer">
@@ -272,19 +266,19 @@ export function AttendanceForm() {
                                                     aria-label={`Marcar presença para ${student.name}`}
                                                 />
                                             </div>
-                                            {index < group.students.length - 1 && <Separator />}
+                                            {index < groupStudents.length - 1 && <Separator />}
                                         </div>
                                     ))}
                                 </div>
                                 <Button 
-                                    onClick={() => saveAttendance(group.key, group.students)}
-                                    disabled={pendingGroups[group.key]} 
+                                    onClick={() => saveAttendance(key, groupStudents)}
+                                    disabled={pendingGroups[key]} 
                                     className="w-full"
                                 >
-                                    {pendingGroups[group.key] ? (
+                                    {pendingGroups[key] ? (
                                         <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Salvando...</>
                                     ) : (
-                                        <><Save className="mr-2 h-4 w-4" /> Salvar Frequência ({group.key})</>
+                                        <><Save className="mr-2 h-4 w-4" /> Salvar Frequência ({key})</>
                                     )}
                                 </Button>
                             </div>
