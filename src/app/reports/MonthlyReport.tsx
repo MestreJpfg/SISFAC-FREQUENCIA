@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useTransition, useMemo, useEffect } from "react";
@@ -96,16 +95,6 @@ export function MonthlyReport() {
     }, [studentClass]);
 
 
-    const filteredStudents = useMemo(() => {
-        if (!allStudents) return [];
-        return allStudents
-            .filter(s => ensino === 'all' || s.ensino === ensino)
-            .filter(s => grade === 'all' || s.grade === grade)
-            .filter(s => studentClass === 'all' || s.class === studentClass)
-            .filter(s => shift === 'all' || s.shift === shift);
-    }, [allStudents, ensino, grade, studentClass, shift]);
-
-
     const getMonthlyAbsences = async (month: number, year: number): Promise<AttendanceRecordWithId[]> => {
         if (!firestore) return [];
         
@@ -128,7 +117,6 @@ export function MonthlyReport() {
         }
     }
 
-
     const handleSearch = () => {
         if (isLoadingAllStudents) return;
 
@@ -136,9 +124,9 @@ export function MonthlyReport() {
             const periodLabel = months.find(m => m.value === month)?.label;
             setSearchedPeriod(`${periodLabel ? periodLabel.charAt(0).toUpperCase() + periodLabel.slice(1) : ''}/${year}`);
 
-            const allAbsences = await getMonthlyAbsences(month, year);
+            const allMonthlyAbsences = await getMonthlyAbsences(month, year);
             
-            const filteredAbsences = allAbsences
+            const filteredAbsences = allMonthlyAbsences
                 .filter(record => ensino === 'all' || record.ensino === ensino)
                 .filter(record => grade === 'all' || record.grade === grade)
                 .filter(record => studentClass === 'all' || record.class === studentClass)
@@ -330,5 +318,3 @@ export function MonthlyReport() {
         </Card>
     );
 }
-
-    
