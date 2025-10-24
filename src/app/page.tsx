@@ -36,7 +36,7 @@ export default function Home() {
           REGISTRO DE FREQUÊNCIA
         </h1>
         <p className="mt-6 text-lg max-w-2xl text-muted-foreground">
-          Uma solução simples e moderna para gerenciar a frequência escolar. Importe sua lista de alunos, marque a presença diária e gere relatórios com apenas alguns cliques.
+          Registre a presença diária e gere relatórios com apenas alguns cliques.
         </p>
       </div>
 
