@@ -43,7 +43,12 @@ export function MonthlyReport() {
     const [studentClass, setStudentClass] = useState<string>('all');
     const [shift, setShift] = useState<string>('all');
 
-    const { data: allStudents, isLoading: isLoadingAllStudents } = useCollection<Student>(useMemoFirebase(() => firestore ? query(collection(firestore, 'students'), orderBy('ensino')) : null, [firestore]));
+    const studentsQuery = useMemoFirebase(() => {
+        if (!firestore) return null;
+        return query(collection(firestore, 'students'), orderBy('name'));
+    }, [firestore]);
+
+    const { data: allStudents, isLoading: isLoadingAllStudents } = useCollection<Student>(studentsQuery);
 
     const { ensinos, grades, classes, shifts } = useMemo(() => {
         if (!allStudents) return { ensinos: [], grades: [], classes: [], shifts: [] };
@@ -85,13 +90,14 @@ export function MonthlyReport() {
 
             querySnapshot.forEach(doc => {
                 const record = doc.data() as AttendanceRecord;
+                // Only count the absence if the student is in the filtered group
                 if (studentIdsSet.has(record.studentId)) {
                     absenceCounts.set(record.studentId, (absenceCounts.get(record.studentId) || 0) + 1);
                 }
             });
         } catch (error) {
             console.error("Error fetching monthly absences:", error);
-            // Optionally, you can handle the error in the UI
+            // In a real app, you might want to show a toast to the user
             return []; // Return empty array on error
         }
 
@@ -118,6 +124,14 @@ export function MonthlyReport() {
             }
         });
     };
+
+     // Auto-run search when filters change and students are loaded
+    useEffect(() => {
+        if (!isLoadingAllStudents && allStudents && allStudents.length > 0) {
+            handleSearch();
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [filteredStudents, month, year]); // Re-run when these dependencies change
     
     if (isLoadingAllStudents) {
          return (
@@ -127,7 +141,7 @@ export function MonthlyReport() {
          )
     }
     
-    if ((!allStudents || allStudents.length === 0) && !isPending) {
+    if (!allStudents || allStudents.length === 0) {
          return (
             <Card>
                  <CardHeader>
@@ -174,7 +188,7 @@ export function MonthlyReport() {
                         </div>
                          <div className="col-span-2 sm:col-span-1">
                             <Label>Ensino</Label>
-                            <Select value={ensino} onValueChange={setEnsino} disabled={isLoadingAllStudents}>
+                            <Select value={ensino} onValueChange={setEnsino}>
                                 <SelectTrigger><SelectValue placeholder="Ensino" /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">Todos os Ensinos</SelectItem>
@@ -184,7 +198,7 @@ export function MonthlyReport() {
                         </div>
                         <div>
                             <Label>Série</Label>
-                            <Select value={grade} onValueChange={setGrade} disabled={isLoadingAllStudents}>
+                            <Select value={grade} onValueChange={setGrade}>
                                 <SelectTrigger><SelectValue placeholder="Série" /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">Todas as Séries</SelectItem>
@@ -194,7 +208,7 @@ export function MonthlyReport() {
                         </div>
                          <div>
                             <Label>Turma</Label>
-                            <Select value={studentClass} onValueChange={setStudentClass} disabled={isLoadingAllStudents}>
+                            <Select value={studentClass} onValueChange={setStudentClass}>
                                 <SelectTrigger><SelectValue placeholder="Turma" /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">Todas as Turmas</SelectItem>
@@ -204,7 +218,7 @@ export function MonthlyReport() {
                         </div>
                         <div>
                             <Label>Turno</Label>
-                            <Select value={shift} onValueChange={setShift} disabled={isLoadingAllStudents}>
+                            <Select value={shift} onValueChange={setShift}>
                                 <SelectTrigger><SelectValue placeholder="Turno" /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">Todos os Turnos</SelectItem>
@@ -213,7 +227,7 @@ export function MonthlyReport() {
                             </Select>
                         </div>
                     </div>
-                     <Button onClick={handleSearch} disabled={isPending || isLoadingAllStudents} className="w-full sm:w-auto">
+                     <Button onClick={handleSearch} disabled={isPending} className="w-full sm:w-auto">
                         {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
                         Gerar Relatório
                     </Button>
@@ -265,3 +279,4 @@ export function MonthlyReport() {
         </Card>
     );
 }
+
