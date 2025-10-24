@@ -6,9 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Upload, Trash2, TriangleAlert } from 'lucide-react';
+import { Loader2, Upload, Trash2, TriangleAlert, ShieldAlert } from 'lucide-react';
 import { useFirebase } from '@/firebase';
-import { collection, writeBatch, getDocs, doc, query } from 'firebase/firestore';
+import { collection, writeBatch, getDocs, doc, query, where } from 'firebase/firestore';
 import * as xlsx from 'xlsx';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
@@ -30,6 +30,7 @@ export function ImportForm() {
   const { firestore } = useFirebase();
   const [isPending, startTransition] = useTransition();
   const [isClearing, startClearingTransition] = useTransition();
+  const [isCleaningAttendance, startCleaningAttendanceTransition] = useTransition();
   const [fileName, setFileName] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -200,6 +201,43 @@ export function ImportForm() {
       });
   }
 
+  const handleCleanAttendanceData = () => {
+    if (!firestore) return;
+
+    startCleaningAttendanceTransition(async () => {
+        const attendanceRef = collection(firestore, "attendance");
+        // Query for documents where 'ensino' is an empty string
+        const q = query(attendanceRef, where("ensino", "==", ""));
+
+        try {
+            const querySnapshot = await getDocs(q);
+            if (querySnapshot.empty) {
+                toast({ title: "Informação", description: "Nenhum registro de frequência com 'ensino' vazio foi encontrado." });
+                return;
+            }
+
+            const batch = writeBatch(firestore);
+            querySnapshot.docs.forEach(doc => {
+                batch.delete(doc.ref);
+            });
+            
+            await batch.commit();
+
+            toast({ title: "Sucesso", description: `${querySnapshot.size} registro(s) de frequência inválido(s) foram removidos.`});
+
+        } catch (e: any) {
+            console.error("Error cleaning attendance data:", e);
+            const permissionError = new FirestorePermissionError({
+                path: 'attendance',
+                operation: 'delete',
+                requestResourceData: { info: "Batch delete for cleaning attendance collection failed." }
+            });
+            errorEmitter.emit('permission-error', permissionError);
+            toast({ variant: "destructive", title: "Erro", description: "Falha ao limpar os dados de frequência."});
+        }
+    });
+  }
+
   return (
     <div className="space-y-8">
         <form onSubmit={handleSubmit} className="space-y-6 p-6 border rounded-lg">
@@ -218,13 +256,13 @@ export function ImportForm() {
                     onChange={handleFileChange}
                     ref={fileInputRef}
                     className="file:text-primary file:font-bold cursor-pointer"
-                    disabled={isPending || isClearing}
+                    disabled={isPending || isClearing || isCleaningAttendance}
                 />
             </div>
             {fileName && <p className="text-sm text-muted-foreground">Arquivo selecionado: {fileName}</p>}
           </div>
 
-          <Button type="submit" disabled={isPending || isClearing || !fileName} className="w-full">
+          <Button type="submit" disabled={isPending || isClearing || isCleaningAttendance || !fileName} className="w-full">
             {isPending ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -246,12 +284,12 @@ export function ImportForm() {
                 </div>
                 <div>
                      <h3 className="font-semibold text-lg text-destructive">Zona de Perigo</h3>
-                     <p className="text-sm text-muted-foreground">A ação abaixo é irreversível. Tenha certeza de que deseja executá-la.</p>
+                     <p className="text-sm text-muted-foreground">As ações abaixo são irreversíveis. Tenha certeza de que deseja executá-las.</p>
                 </div>
              </div>
             <AlertDialog>
                 <AlertDialogTrigger asChild>
-                    <Button variant="destructive" className="w-full" disabled={isClearing || isPending}>
+                    <Button variant="destructive" className="w-full" disabled={isClearing || isPending || isCleaningAttendance}>
                         {isClearing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
                         Limpar Banco de Dados de Alunos
                     </Button>
@@ -271,7 +309,31 @@ export function ImportForm() {
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
+            <AlertDialog>
+                <AlertDialogTrigger asChild>
+                    <Button variant="destructive" className="w-full" disabled={isClearing || isPending || isCleaningAttendance}>
+                        {isCleaningAttendance ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ShieldAlert className="mr-2 h-4 w-4" />}
+                        Limpar Frequências Inválidas
+                    </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                    <AlertDialogTitle>Limpar dados de frequência?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        Esta ação buscará e removerá permanentemente os registros de frequência onde o campo 'ensino' está vazio. Esta é uma operação de manutenção para corrigir dados inconsistentes.
+                    </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleCleanAttendanceData}>
+                        Sim, limpar frequências
+                    </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     </div>
   );
 }
+
+    
