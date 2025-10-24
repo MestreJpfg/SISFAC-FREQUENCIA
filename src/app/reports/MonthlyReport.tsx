@@ -132,8 +132,8 @@ export function MonthlyReport() {
 
             const absenceCounts = new Map<string, number>();
             allMonthlyAbsences.forEach(record => {
-                const student = studentMap.get(record.studentId);
-                if (student) {
+                // Ensure the student exists in our main list before counting
+                if (studentMap.has(record.studentId)) {
                     absenceCounts.set(record.studentId, (absenceCounts.get(record.studentId) || 0) + 1);
                 }
             });
@@ -141,6 +141,7 @@ export function MonthlyReport() {
             const reportData: MonthlyAbsenceData[] = [];
             absenceCounts.forEach((count, studentId) => {
                 const student = studentMap.get(studentId);
+                // We are sure the student exists because of the check above
                 if (student) {
                     reportData.push({
                         studentId: student.id,
@@ -373,6 +374,5 @@ export function MonthlyReport() {
         </Card>
     );
 }
-
 
     
