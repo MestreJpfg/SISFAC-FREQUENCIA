@@ -116,7 +116,7 @@ export function DailyReport() {
                         <div>
                             <Label>Série</Label>
                             <Select value={grade} onValueChange={setGrade}>
-                                <SelectTrigger><SelectValue placeholder="Série" /></Select|''>
+                                <SelectTrigger><SelectValue placeholder="Série" /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">Todas as Séries</SelectItem>
                                     {grades.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}
