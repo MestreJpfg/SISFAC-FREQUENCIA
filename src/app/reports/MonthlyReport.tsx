@@ -50,15 +50,28 @@ export function MonthlyReport() {
     }, [firestore]);
 
     const { data: allStudents, isLoading: isLoadingAllStudents } = useCollection<Student>(studentsQuery);
-
+    
     const { ensinos, grades, classes, shifts } = useMemo(() => {
         if (!allStudents) return { ensinos: [], grades: [], classes: [], shifts: [] };
+
+        const filteredByEnsino = ensino === 'all' 
+            ? allStudents 
+            : allStudents.filter(s => s.ensino === ensino);
+
         const uniqueEnsinos = [...new Set(allStudents.map(s => s.ensino))].sort();
-        const uniqueGrades = [...new Set(allStudents.map(s => s.grade))].sort((a,b) => a.localeCompare(b, undefined, { numeric: true }));
-        const uniqueClasses = [...new Set(allStudents.map(s => s.class))].sort();
-        const uniqueShifts = [...new Set(allStudents.map(s => s.shift))].sort();
+        const uniqueGrades = [...new Set(filteredByEnsino.map(s => s.grade))].sort((a,b) => a.localeCompare(b, undefined, { numeric: true }));
+        const uniqueClasses = [...new Set(filteredByEnsino.map(s => s.class))].sort();
+        const uniqueShifts = [...new Set(filteredByEnsino.map(s => s.shift))].sort();
+
         return { ensinos: uniqueEnsinos, grades: uniqueGrades, classes: uniqueClasses, shifts: uniqueShifts };
-    }, [allStudents]);
+    }, [allStudents, ensino]);
+
+    useEffect(() => {
+        setGrade('all');
+        setStudentClass('all');
+        setShift('all');
+    }, [ensino]);
+
 
     const filteredStudents = useMemo(() => {
         if (!allStudents) return [];
@@ -135,7 +148,7 @@ export function MonthlyReport() {
         exportMonthlyReportToPDF(searchedPeriod, filters, dataToExport);
     }
     
-    if (isLoadingAllStudents) {
+    if (isLoadingAllStudents && !allStudents) {
          return (
             <div className="flex justify-center items-center h-60">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -190,7 +203,7 @@ export function MonthlyReport() {
                         </div>
                          <div className="col-span-2 sm:col-span-1">
                             <Label>Ensino</Label>
-                            <Select value={ensino} onValueChange={setEnsino} disabled={!ensinos.length}>
+                            <Select value={ensino} onValueChange={setEnsino} disabled={isLoadingAllStudents || ensinos.length === 0}>
                                 <SelectTrigger><SelectValue placeholder="Ensino" /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">Todos os Ensinos</SelectItem>
@@ -200,7 +213,7 @@ export function MonthlyReport() {
                         </div>
                         <div>
                             <Label>Série</Label>
-                            <Select value={grade} onValueChange={setGrade} disabled={!grades.length}>
+                            <Select value={grade} onValueChange={setGrade} disabled={isLoadingAllStudents || grades.length === 0}>
                                 <SelectTrigger><SelectValue placeholder="Série" /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">Todas as Séries</SelectItem>
@@ -210,7 +223,7 @@ export function MonthlyReport() {
                         </div>
                          <div>
                             <Label>Turma</Label>
-                            <Select value={studentClass} onValueChange={setStudentClass} disabled={!classes.length}>
+                            <Select value={studentClass} onValueChange={setStudentClass} disabled={isLoadingAllStudents || classes.length === 0}>
                                 <SelectTrigger><SelectValue placeholder="Turma" /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">Todas as Turmas</SelectItem>
@@ -220,7 +233,7 @@ export function MonthlyReport() {
                         </div>
                         <div>
                             <Label>Turno</Label>
-                            <Select value={shift} onValueChange={setShift} disabled={!shifts.length}>
+                            <Select value={shift} onValueChange={setShift} disabled={isLoadingAllStudents || shifts.length === 0}>
                                 <SelectTrigger><SelectValue placeholder="Turno" /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">Todos os Turnos</SelectItem>
