@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useTransition, useMemo, useEffect } from "react";
@@ -7,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { Student } from "@/lib/types";
-import { Loader2, Search, TriangleAlert, FileDown } from "lucide-react";
+import { Loader2, Search, TriangleAlert, FileDown, ArrowUpDown, ArrowDown, ArrowUp } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -15,6 +16,7 @@ import { useFirebase, useCollection, useMemoFirebase } from "@/firebase";
 import { collection, getDocs, query, where, orderBy, DocumentData } from 'firebase/firestore';
 import { Label } from "@/components/ui/label";
 import { exportMonthlyReportToPDF } from "@/lib/pdf-export";
+import { cn } from "@/lib/utils";
 
 type StudentWithId = Student & { id: string };
 
@@ -44,6 +46,7 @@ export interface MonthlyAbsenceData {
 const months = Array.from({ length: 12 }, (_, i) => ({ value: i, label: format(new Date(2000, i), 'MMMM', {locale: ptBR}) }));
 const currentYear = getYear(new Date());
 const years = Array.from({ length: 5 }, (_, i) => currentYear - i);
+type SortableKeys = keyof MonthlyAbsenceData;
 
 export function MonthlyReport() {
     const { firestore } = useFirebase();
@@ -57,6 +60,9 @@ export function MonthlyReport() {
     const [grade, setGrade] = useState<string>('all');
     const [studentClass, setStudentClass] = useState<string>('all');
     const [shift, setShift] = useState<string>('all');
+    
+    const [sortConfig, setSortConfig] = useState<{ key: SortableKeys; direction: 'ascending' | 'descending' } | null>({ key: 'absenceCount', direction: 'descending' });
+
 
     const studentsQuery = useMemoFirebase(() => {
         if (!firestore) return null;
@@ -113,6 +119,7 @@ export function MonthlyReport() {
             return querySnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as AttendanceRecordWithId));
         } catch (error) {
             console.error("Error fetching monthly absences:", error);
+            // This could be enhanced to show a toast to the user
             return [];
         }
     }
@@ -155,16 +162,55 @@ export function MonthlyReport() {
                 }
             });
             
-            reportData.sort((a, b) => b.absenceCount - a.absenceCount || a.studentName.localeCompare(b.studentName));
-
             setReport(reportData);
         });
+    };
+
+    const sortedReport = useMemo(() => {
+        let sortableItems = [...report];
+        if (sortConfig !== null) {
+            sortableItems.sort((a, b) => {
+                const aValue = a[sortConfig.key];
+                const bValue = b[sortConfig.key];
+
+                if (typeof aValue === 'number' && typeof bValue === 'number') {
+                    if (aValue < bValue) return sortConfig.direction === 'ascending' ? -1 : 1;
+                    if (aValue > bValue) return sortConfig.direction === 'ascending' ? 1 : -1;
+                    return 0;
+                }
+                
+                const aStr = String(aValue);
+                const bStr = String(bValue);
+
+                const comparison = aStr.localeCompare(bStr, undefined, { numeric: true });
+                return sortConfig.direction === 'ascending' ? comparison : -comparison;
+            });
+        }
+        return sortableItems;
+    }, [report, sortConfig]);
+
+    const requestSort = (key: SortableKeys) => {
+        let direction: 'ascending' | 'descending' = 'ascending';
+        if (sortConfig && sortConfig.key === key && sortConfig.direction === 'ascending') {
+            direction = 'descending';
+        }
+        setSortConfig({ key, direction });
+    };
+
+    const getSortIcon = (key: SortableKeys) => {
+        if (!sortConfig || sortConfig.key !== key) {
+            return <ArrowUpDown className="ml-2 h-4 w-4" />;
+        }
+        if (sortConfig.direction === 'ascending') {
+            return <ArrowUp className="ml-2 h-4 w-4" />;
+        }
+        return <ArrowDown className="ml-2 h-4 w-4" />;
     };
     
     const handleExport = () => {
         if (!searchedPeriod) return;
         const filters = { ensino, grade, studentClass, shift };
-        const dataToExport = report.filter(r => r.absenceCount > 0);
+        const dataToExport = sortedReport.filter(r => r.absenceCount > 0);
         exportMonthlyReportToPDF(searchedPeriod, filters, dataToExport);
     }
     
@@ -267,7 +313,7 @@ export function MonthlyReport() {
                             {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
                             Gerar Relatório
                         </Button>
-                        <Button onClick={handleExport} disabled={isPending || !searchedPeriod || report.filter(r => r.absenceCount > 0).length === 0} className="w-full sm:w-auto" variant="secondary">
+                        <Button onClick={handleExport} disabled={isPending || !searchedPeriod || sortedReport.filter(r => r.absenceCount > 0).length === 0} className="w-full sm:w-auto" variant="secondary">
                             <FileDown className="mr-2 h-4 w-4" />
                             Exportar para PDF
                         </Button>
@@ -281,24 +327,54 @@ export function MonthlyReport() {
                     </div>
                 ) : searchedPeriod && (
                     <div className="pt-4">
-                         <h3 className="font-semibold mb-2">Resultados para {searchedPeriod}:</h3>
-                          {report.length === 0 || report.every(r => r.absenceCount === 0) ? (
+                         <h3 className="font-semibold mb-2">Resultados para {searchedPeriod}: <span className="font-bold">{sortedReport.filter(r => r.absenceCount > 0).length}</span> aluno(s) com faltas</h3>
+                          {sortedReport.length === 0 || sortedReport.every(r => r.absenceCount === 0) ? (
                             <p className="text-muted-foreground text-center py-4">Nenhuma ausência registrada para o período e filtros selecionados.</p>
                         ) : (
                             <ScrollArea className="h-96 rounded-md border">
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead>Nome do Aluno</TableHead>
-                                        <TableHead>Ensino</TableHead>
-                                        <TableHead>Série</TableHead>
-                                        <TableHead>Turma</TableHead>
-                                        <TableHead>Turno</TableHead>
-                                        <TableHead className="text-right">Total de Faltas</TableHead>
+                                        <TableHead>
+                                             <Button variant="ghost" onClick={() => requestSort('studentName')} className="px-0">
+                                                Nome do Aluno
+                                                {getSortIcon('studentName')}
+                                            </Button>
+                                        </TableHead>
+                                        <TableHead>
+                                            <Button variant="ghost" onClick={() => requestSort('studentEnsino')} className="px-0">
+                                                Ensino
+                                                {getSortIcon('studentEnsino')}
+                                            </Button>
+                                        </TableHead>
+                                        <TableHead>
+                                            <Button variant="ghost" onClick={() => requestSort('studentGrade')} className="px-0">
+                                                Série
+                                                {getSortIcon('studentGrade')}
+                                            </Button>
+                                        </TableHead>
+                                        <TableHead>
+                                             <Button variant="ghost" onClick={() => requestSort('studentClass')} className="px-0">
+                                                Turma
+                                                {getSortIcon('studentClass')}
+                                            </Button>
+                                        </TableHead>
+                                        <TableHead>
+                                            <Button variant="ghost" onClick={() => requestSort('studentShift')} className="px-0">
+                                                Turno
+                                                {getSortIcon('studentShift')}
+                                            </Button>
+                                        </TableHead>
+                                        <TableHead className="text-right">
+                                            <Button variant="ghost" onClick={() => requestSort('absenceCount')} className="px-0">
+                                                Total de Faltas
+                                                {getSortIcon('absenceCount')}
+                                            </Button>
+                                        </TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {report.filter(r => r.absenceCount > 0).map((data) => (
+                                    {sortedReport.filter(r => r.absenceCount > 0).map((data) => (
                                         <TableRow key={data.studentId}>
                                             <TableCell className="font-medium">{data.studentName}</TableCell>
                                             <TableCell>{data.studentEnsino}</TableCell>
@@ -318,3 +394,5 @@ export function MonthlyReport() {
         </Card>
     );
 }
+
+    

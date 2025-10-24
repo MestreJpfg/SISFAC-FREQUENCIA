@@ -4,7 +4,7 @@
 import { useState, useTransition, useEffect, useMemo } from "react";
 import { format, subDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Calendar as CalendarIcon, Loader2, Search, FileDown } from "lucide-react";
+import { Calendar as CalendarIcon, Loader2, Search, FileDown, ArrowUpDown, ArrowDown, ArrowUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -17,14 +17,15 @@ import { collection, getDocs, query, where, orderBy, DocumentData } from 'fireba
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { exportDailyReportToPDF, type DailyAbsenceWithConsecutive } from "@/lib/pdf-export";
+import { cn } from "@/lib/utils";
 
 type Student = { id: string; name: string; ensino: string; grade: string; class: string; shift: string; };
+type SortableKeys = keyof DailyAbsenceWithConsecutive;
 
 export function DailyReport() {
     const { firestore } = useFirebase();
     const [date, setDate] = useState<Date | undefined>(new Date());
-    const [absences, setAbsences] = useState<AttendanceRecord[]>([]);
-    const [previousDayAbsences, setPreviousDayAbsences] = useState<AttendanceRecord[]>([]);
+    const [absences, setAbsences] = useState<DailyAbsenceWithConsecutive[]>([]);
     const [isPending, startTransition] = useTransition();
     const [searchedDate, setSearchedDate] = useState<Date | null>(null);
 
@@ -32,6 +33,9 @@ export function DailyReport() {
     const [grade, setGrade] = useState<string>('all');
     const [studentClass, setStudentClass] = useState<string>('all');
     const [shift, setShift] = useState<string>('all');
+    
+    const [sortConfig, setSortConfig] = useState<{ key: SortableKeys; direction: 'ascending' | 'descending' } | null>({ key: 'studentName', direction: 'ascending' });
+
 
     const { data: allStudents, isLoading: isLoadingAllStudents } = useCollection<Student>(useMemoFirebase(() => firestore ? query(collection(firestore, 'students')) : null, [firestore]));
 
@@ -76,14 +80,35 @@ export function DailyReport() {
         return querySnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as AttendanceRecord));
     }
     
-    const filteredAbsences = useMemo(() => {
-        return absences
+    const filteredAndSortedAbsences = useMemo(() => {
+        let sortableItems = [...absences]
             .filter(record => ensino === 'all' || record.ensino === ensino)
             .filter(record => grade === 'all' || record.grade === grade)
             .filter(record => studentClass === 'all' || record.class === studentClass)
-            .filter(record => shift === 'all' || record.shift === shift)
-            .sort((a, b) => a.studentName.localeCompare(b.studentName));
-    }, [absences, ensino, grade, studentClass, shift]);
+            .filter(record => shift === 'all' || record.shift === shift);
+
+        if (sortConfig !== null) {
+            sortableItems.sort((a, b) => {
+                const aValue = a[sortConfig.key];
+                const bValue = b[sortConfig.key];
+
+                if (typeof aValue === 'boolean' && typeof bValue === 'boolean') {
+                    if (aValue < bValue) return sortConfig.direction === 'ascending' ? -1 : 1;
+                    if (aValue > bValue) return sortConfig.direction === 'ascending' ? 1 : -1;
+                    return 0;
+                }
+                
+                // Default to string comparison
+                const aStr = String(aValue);
+                const bStr = String(bValue);
+
+                const comparison = aStr.localeCompare(bStr, undefined, { numeric: true });
+                return sortConfig.direction === 'ascending' ? comparison : -comparison;
+            });
+        }
+        
+        return sortableItems;
+    }, [absences, ensino, grade, studentClass, shift, sortConfig]);
 
 
     const handleSearch = () => {
@@ -95,24 +120,41 @@ export function DailyReport() {
                 getAbsencesForDate(date),
                 getAbsencesForDate(subDays(date, 1))
             ]);
-            setAbsences(currentAbsences);
-            setPreviousDayAbsences(prevDayAbsences);
+            
+            const prevDayAbsenceSet = new Set(prevDayAbsences.map(a => a.studentId));
+
+            const absencesWithConsecutive: DailyAbsenceWithConsecutive[] = currentAbsences.map(absence => ({
+                ...absence,
+                isConsecutive: prevDayAbsenceSet.has(absence.studentId)
+            }));
+            
+            setAbsences(absencesWithConsecutive);
         });
     };
 
     const handleExport = () => {
         if (!searchedDate) return;
-
-        const previousDayAbsencesSet = new Set(previousDayAbsences.map(a => a.studentId));
-
-        const dataToExport: DailyAbsenceWithConsecutive[] = filteredAbsences.map(absence => ({
-            ...absence,
-            isConsecutive: previousDayAbsencesSet.has(absence.studentId)
-        }));
-
         const filters = { ensino, grade, studentClass, shift };
-        exportDailyReportToPDF(searchedDate, filters, dataToExport);
+        exportDailyReportToPDF(searchedDate, filters, filteredAndSortedAbsences);
     }
+    
+    const requestSort = (key: SortableKeys) => {
+        let direction: 'ascending' | 'descending' = 'ascending';
+        if (sortConfig && sortConfig.key === key && sortConfig.direction === 'ascending') {
+            direction = 'descending';
+        }
+        setSortConfig({ key, direction });
+    };
+
+    const getSortIcon = (key: SortableKeys) => {
+        if (!sortConfig || sortConfig.key !== key) {
+            return <ArrowUpDown className="ml-2 h-4 w-4" />;
+        }
+        if (sortConfig.direction === 'ascending') {
+            return <ArrowUp className="ml-2 h-4 w-4" />;
+        }
+        return <ArrowDown className="ml-2 h-4 w-4" />;
+    };
 
     // Auto-search on initial load with today's date
     useEffect(() => {
@@ -191,7 +233,7 @@ export function DailyReport() {
                                 {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
                                 Buscar
                         </Button>
-                        <Button onClick={handleExport} disabled={isPending || !searchedDate || filteredAbsences.length === 0} className="w-full sm:w-auto" variant="secondary">
+                        <Button onClick={handleExport} disabled={isPending || !searchedDate || filteredAndSortedAbsences.length === 0} className="w-full sm:w-auto" variant="secondary">
                             <FileDown className="mr-2 h-4 w-4" />
                             Exportar para PDF
                         </Button>
@@ -204,31 +246,61 @@ export function DailyReport() {
                     </div>
                 ) : searchedDate && (
                     <div className="pt-4">
-                        <h3 className="font-semibold mb-2">Ausentes em {format(searchedDate, "dd/MM/yyyy")}: <span className="font-bold">{filteredAbsences.length}</span></h3>
-                        {filteredAbsences.length === 0 ? (
+                        <h3 className="font-semibold mb-2">Ausentes em {format(searchedDate, "dd/MM/yyyy")}: <span className="font-bold">{filteredAndSortedAbsences.length}</span></h3>
+                        {filteredAndSortedAbsences.length === 0 ? (
                             <p className="text-muted-foreground text-center py-4">Nenhum aluno ausente para os filtros selecionados.</p>
                         ) : (
                             <ScrollArea className="h-96 rounded-md border">
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead>Nome do Aluno</TableHead>
-                                        <TableHead>Ensino</TableHead>
-                                        <TableHead>Série</TableHead>
-                                        <TableHead>Turma</TableHead>
-                                        <TableHead>Turno</TableHead>
-                                        <TableHead>Falta Consecutiva</TableHead>
+                                        <TableHead>
+                                            <Button variant="ghost" onClick={() => requestSort('studentName')} className="px-0">
+                                                Nome do Aluno
+                                                {getSortIcon('studentName')}
+                                            </Button>
+                                        </TableHead>
+                                        <TableHead>
+                                            <Button variant="ghost" onClick={() => requestSort('ensino')} className="px-0">
+                                                Ensino
+                                                {getSortIcon('ensino')}
+                                            </Button>
+                                        </TableHead>
+                                        <TableHead>
+                                            <Button variant="ghost" onClick={() => requestSort('grade')} className="px-0">
+                                                Série
+                                                {getSortIcon('grade')}
+                                            </Button>
+                                        </TableHead>
+                                        <TableHead>
+                                             <Button variant="ghost" onClick={() => requestSort('class')} className="px-0">
+                                                Turma
+                                                {getSortIcon('class')}
+                                            </Button>
+                                        </TableHead>
+                                        <TableHead>
+                                             <Button variant="ghost" onClick={() => requestSort('shift')} className="px-0">
+                                                Turno
+                                                {getSortIcon('shift')}
+                                            </Button>
+                                        </TableHead>
+                                        <TableHead>
+                                            <Button variant="ghost" onClick={() => requestSort('isConsecutive')} className="px-0">
+                                                Falta Consecutiva
+                                                {getSortIcon('isConsecutive')}
+                                            </Button>
+                                        </TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {filteredAbsences.map((record) => (
+                                    {filteredAndSortedAbsences.map((record) => (
                                         <TableRow key={record.id}>
                                             <TableCell className="font-medium">{record.studentName}</TableCell>
                                             <TableCell>{record.ensino}</TableCell>
                                             <TableCell>{record.grade}</TableCell>
                                             <TableCell>{record.class}</TableCell>
                                             <TableCell>{record.shift}</TableCell>
-                                            <TableCell>{previousDayAbsences.some(a => a.studentId === record.studentId) ? 'Sim' : 'Não'}</TableCell>
+                                            <TableCell>{record.isConsecutive ? 'Sim' : 'Não'}</TableCell>
                                         </TableRow>
                                     ))}
                                 </TableBody>
@@ -241,3 +313,5 @@ export function DailyReport() {
         </Card>
     );
 }
+
+    
