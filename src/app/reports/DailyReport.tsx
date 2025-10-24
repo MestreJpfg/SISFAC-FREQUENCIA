@@ -4,7 +4,7 @@
 import { useState, useTransition, useEffect, useMemo } from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Calendar as CalendarIcon, Loader2, Search } from "lucide-react";
+import { Calendar as CalendarIcon, Loader2, Search, FileDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -16,6 +16,7 @@ import { useFirebase, useCollection, useMemoFirebase } from "@/firebase";
 import { collection, getDocs, query, where, orderBy } from 'firebase/firestore';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { exportDailyReportToPDF } from "@/lib/pdf-export";
 
 
 export function DailyReport() {
@@ -73,6 +74,12 @@ export function DailyReport() {
         });
     };
 
+    const handleExport = () => {
+        if (!searchedDate) return;
+        const filters = { ensino, grade, studentClass, shift };
+        exportDailyReportToPDF(searchedDate, filters, filteredAbsences);
+    }
+
     // Auto-search on initial load with today's date
     useEffect(() => {
         if (firestore && !searchedDate) {
@@ -106,7 +113,7 @@ export function DailyReport() {
                         </div>
                          <div className="col-span-2 sm:col-span-1 lg:col-span-1">
                             <Label>Ensino</Label>
-                            <Select value={ensino} onValueChange={setEnsino} disabled={isLoadingAllStudents}>
+                            <Select value={ensino} onValueChange={setEnsino} disabled={isLoadingAllStudents || !ensinos.length}>
                                 <SelectTrigger><SelectValue placeholder="Ensino" /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">Todos os Ensinos</SelectItem>
@@ -116,7 +123,7 @@ export function DailyReport() {
                         </div>
                         <div>
                             <Label>Série</Label>
-                            <Select value={grade} onValueChange={setGrade} disabled={isLoadingAllStudents}>
+                            <Select value={grade} onValueChange={setGrade} disabled={isLoadingAllStudents || !grades.length}>
                                 <SelectTrigger><SelectValue placeholder="Série" /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">Todas as Séries</SelectItem>
@@ -126,7 +133,7 @@ export function DailyReport() {
                         </div>
                          <div>
                             <Label>Turma</Label>
-                            <Select value={studentClass} onValueChange={setStudentClass} disabled={isLoadingAllStudents}>
+                            <Select value={studentClass} onValueChange={setStudentClass} disabled={isLoadingAllStudents || !classes.length}>
                                 <SelectTrigger><SelectValue placeholder="Turma" /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">Todas as Turmas</SelectItem>
@@ -136,7 +143,7 @@ export function DailyReport() {
                         </div>
                         <div>
                             <Label>Turno</Label>
-                            <Select value={shift} onValueChange={setShift} disabled={isLoadingAllStudents}>
+                            <Select value={shift} onValueChange={setShift} disabled={isLoadingAllStudents || !shifts.length}>
                                 <SelectTrigger><SelectValue placeholder="Turno" /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">Todos os Turnos</SelectItem>
@@ -145,10 +152,16 @@ export function DailyReport() {
                             </Select>
                         </div>
                     </div>
-                     <Button onClick={handleSearch} disabled={isPending || !date} className="w-full sm:w-auto">
-                            {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
-                            Buscar
-                    </Button>
+                     <div className="flex flex-col sm:flex-row gap-2">
+                        <Button onClick={handleSearch} disabled={isPending || !date} className="w-full sm:w-auto">
+                                {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
+                                Buscar
+                        </Button>
+                        <Button onClick={handleExport} disabled={isPending || !searchedDate || filteredAbsences.length === 0} className="w-full sm:w-auto" variant="secondary">
+                            <FileDown className="mr-2 h-4 w-4" />
+                            Exportar para PDF
+                        </Button>
+                    </div>
                 </div>
 
                 {isPending ? (

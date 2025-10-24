@@ -8,13 +8,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { Student, AttendanceRecord } from "@/lib/types";
-import { Loader2, Search, TriangleAlert } from "lucide-react";
+import { Loader2, Search, TriangleAlert, FileDown } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useFirebase, useCollection, useMemoFirebase } from "@/firebase";
 import { collection, getDocs, query, where, orderBy } from 'firebase/firestore';
 import { Label } from "@/components/ui/label";
+import { exportMonthlyReportToPDF } from "@/lib/pdf-export";
 
 export interface MonthlyAbsenceData {
     studentId: string;
@@ -90,7 +91,6 @@ export function MonthlyReport() {
 
             querySnapshot.forEach(doc => {
                 const record = doc.data() as AttendanceRecord;
-                // Only count the absence if the student is in the filtered group
                 if (studentIdsSet.has(record.studentId)) {
                     absenceCounts.set(record.studentId, (absenceCounts.get(record.studentId) || 0) + 1);
                 }
@@ -113,8 +113,12 @@ export function MonthlyReport() {
     }
 
     const handleSearch = () => {
+        if (isLoadingAllStudents) return;
+
         startTransition(async () => {
-            setSearchedPeriod(`${months.find(m => m.value === month)?.label}/${year}`);
+            const periodLabel = months.find(m => m.value === month)?.label;
+            setSearchedPeriod(`${periodLabel ? periodLabel.charAt(0).toUpperCase() + periodLabel.slice(1) : ''}/${year}`);
+
             if (filteredStudents.length > 0) {
               const result = await getMonthlyAbsences(month, year, filteredStudents);
               setReport(result);
@@ -124,13 +128,12 @@ export function MonthlyReport() {
         });
     };
     
-    // Set initial report on first load with all students
-    useEffect(() => {
-        if (firestore && allStudents && !searchedPeriod) {
-            handleSearch();
-        }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [firestore, allStudents, searchedPeriod]);
+    const handleExport = () => {
+        if (!searchedPeriod) return;
+        const filters = { ensino, grade, studentClass, shift };
+        const dataToExport = report.filter(r => r.absenceCount > 0);
+        exportMonthlyReportToPDF(searchedPeriod, filters, dataToExport);
+    }
     
     if (isLoadingAllStudents) {
          return (
@@ -226,10 +229,16 @@ export function MonthlyReport() {
                             </Select>
                         </div>
                     </div>
-                     <Button onClick={handleSearch} disabled={isPending} className="w-full sm:w-auto">
-                        {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
-                        Gerar Relatório
-                    </Button>
+                     <div className="flex flex-col sm:flex-row gap-2">
+                        <Button onClick={handleSearch} disabled={isPending} className="w-full sm:w-auto">
+                            {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
+                            Gerar Relatório
+                        </Button>
+                        <Button onClick={handleExport} disabled={isPending || !searchedPeriod || report.filter(r => r.absenceCount > 0).length === 0} className="w-full sm:w-auto" variant="secondary">
+                            <FileDown className="mr-2 h-4 w-4" />
+                            Exportar para PDF
+                        </Button>
+                    </div>
                 </div>
 
 
@@ -239,7 +248,7 @@ export function MonthlyReport() {
                     </div>
                 ) : searchedPeriod && (
                     <div className="pt-4">
-                         <h3 className="font-semibold mb-2 capitalize">Total de ausências em {searchedPeriod}:</h3>
+                         <h3 className="font-semibold mb-2">Resultados para {searchedPeriod}:</h3>
                          {filteredStudents.length === 0 ? (
                             <p className="text-muted-foreground text-center py-4">Nenhum aluno encontrado para os filtros selecionados.</p>
                          ) : report.length === 0 || report.every(r => r.absenceCount === 0) ? (
