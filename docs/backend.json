@@ -40,7 +40,7 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "AttendanceRecord",
       "type": "object",
-      "description": "Represents a single attendance record for a student on a specific date.",
+      "description": "Represents a single attendance record for a student on a specific date. This entity requires composite indexes for efficient querying on reports.",
       "properties": {
         "studentId": {
           "type": "string",
@@ -65,19 +65,19 @@
         },
         "ensino": {
           "type": "string",
-          "description": "The education level of the student."
+          "description": "The education level of the student at the time of the record."
         },
         "grade": {
           "type": "string",
-          "description": "The grade of the student."
+          "description": "The grade of the student at the time of the record."
         },
         "class": {
           "type": "string",
-          "description": "The class of the student."
+          "description": "The class of the student at the time of the record."
         },
         "shift": {
           "type": "string",
-          "description": "The shift of the student."
+          "description": "The shift of the student at the time of the record."
         }
       },
       "required": [
