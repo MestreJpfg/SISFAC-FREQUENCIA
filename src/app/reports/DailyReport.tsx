@@ -30,7 +30,7 @@ export function DailyReport() {
     const [studentClass, setStudentClass] = useState<string>('all');
     const [shift, setShift] = useState<string>('all');
 
-    const { data: allStudents } = useCollection<Student>(useMemoFirebase(() => firestore ? query(collection(firestore, 'students'), orderBy('ensino')) : null, [firestore]));
+    const { data: allStudents, isLoading: isLoadingAllStudents } = useCollection<Student>(useMemoFirebase(() => firestore ? query(collection(firestore, 'students'), orderBy('ensino')) : null, [firestore]));
 
     const { ensinos, grades, classes, shifts } = useMemo(() => {
         if (!allStudents) return { ensinos: [], grades: [], classes: [], shifts: [] };
@@ -65,8 +65,9 @@ export function DailyReport() {
 
     const handleSearch = () => {
         if (!date) return;
-        setSearchedDate(date);
+        
         startTransition(async () => {
+            setSearchedDate(date);
             const result = await getDailyAbsences(date);
             setAbsences(result);
         });
@@ -74,11 +75,11 @@ export function DailyReport() {
 
     // Auto-search on initial load with today's date
     useEffect(() => {
-        if (firestore) {
+        if (firestore && !searchedDate) {
             handleSearch();
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [firestore]);
+    }, [firestore, searchedDate]);
 
     return (
         <Card>
@@ -88,8 +89,8 @@ export function DailyReport() {
             </CardHeader>
             <CardContent className="space-y-6">
                 <div className="space-y-4">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-                         <div className="col-span-1 sm:col-span-2 lg:col-span-1">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 items-end">
+                         <div className="col-span-2 sm:col-span-1 lg:col-span-2">
                              <Label>Data</Label>
                             <Popover>
                                 <PopoverTrigger asChild>
@@ -103,9 +104,9 @@ export function DailyReport() {
                                 </PopoverContent>
                             </Popover>
                         </div>
-                         <div>
+                         <div className="col-span-2 sm:col-span-1 lg:col-span-1">
                             <Label>Ensino</Label>
-                            <Select value={ensino} onValueChange={setEnsino}>
+                            <Select value={ensino} onValueChange={setEnsino} disabled={isLoadingAllStudents}>
                                 <SelectTrigger><SelectValue placeholder="Ensino" /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">Todos os Ensinos</SelectItem>
@@ -115,7 +116,7 @@ export function DailyReport() {
                         </div>
                         <div>
                             <Label>Série</Label>
-                            <Select value={grade} onValueChange={setGrade}>
+                            <Select value={grade} onValueChange={setGrade} disabled={isLoadingAllStudents}>
                                 <SelectTrigger><SelectValue placeholder="Série" /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">Todas as Séries</SelectItem>
@@ -125,7 +126,7 @@ export function DailyReport() {
                         </div>
                          <div>
                             <Label>Turma</Label>
-                            <Select value={studentClass} onValueChange={setStudentClass}>
+                            <Select value={studentClass} onValueChange={setStudentClass} disabled={isLoadingAllStudents}>
                                 <SelectTrigger><SelectValue placeholder="Turma" /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">Todas as Turmas</SelectItem>
@@ -135,7 +136,7 @@ export function DailyReport() {
                         </div>
                         <div>
                             <Label>Turno</Label>
-                            <Select value={shift} onValueChange={setShift}>
+                            <Select value={shift} onValueChange={setShift} disabled={isLoadingAllStudents}>
                                 <SelectTrigger><SelectValue placeholder="Turno" /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">Todos os Turnos</SelectItem>

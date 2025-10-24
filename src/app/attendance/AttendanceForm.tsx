@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useTransition, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import type { Student, AttendanceRecord } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -68,13 +68,19 @@ export function AttendanceForm() {
     }, [students]);
 
     useEffect(() => {
-        if (uniqueEnsinos.length > 0 && !activeEnsinoTab) {
-            setActiveEnsinoTab(uniqueEnsinos[0]);
+        if (students && students.length > 0) {
+            if (uniqueEnsinos.length > 0 && !activeEnsinoTab) {
+                setActiveEnsinoTab(uniqueEnsinos[0]);
+            }
+            if (uniqueTurnos.length > 0 && !activeTurnoTab) {
+                setActiveTurnoTab(uniqueTurnos[0]);
+            }
+        } else {
+            setActiveEnsinoTab(undefined);
+            setActiveTurnoTab(undefined);
         }
-        if (uniqueTurnos.length > 0 && !activeTurnoTab) {
-            setActiveTurnoTab(uniqueTurnos[0]);
-        }
-    }, [uniqueEnsinos, activeEnsinoTab, uniqueTurnos, activeTurnoTab]);
+    }, [students, uniqueEnsinos, activeEnsinoTab, uniqueTurnos, activeTurnoTab]);
+
 
     const groupedAndSortedStudents = useMemo(() => {
         if (!students || !activeEnsinoTab || !activeTurnoTab) return [];
@@ -118,7 +124,7 @@ export function AttendanceForm() {
         }));
     };
 
-    const saveAttendance = async (groupKey: string, studentsToSave: Student[]) => {
+    const saveAttendance = (groupKey: string, studentsToSave: Student[]) => {
         if (!firestore) return;
 
         setPendingGroups(prev => ({ ...prev, [groupKey]: true }));
@@ -126,18 +132,16 @@ export function AttendanceForm() {
         const today = format(new Date(), 'yyyy-MM-dd');
         const attendanceRef = collection(firestore, "attendance");
         const studentIdsToSave = studentsToSave.map(s => s.id);
-
-        try {
-            const batch = writeBatch(firestore);
-            
-            // Delete only existing records for the students in this group for today
-            const q = query(collection(firestore, "attendance"), where("date", "==", today), where("studentId", "in", studentIdsToSave));
-            const existingDocsSnap = await getDocs(q);
+        
+        const batch = writeBatch(firestore);
+        
+        const q = query(collection(firestore, "attendance"), where("date", "==", today), where("studentId", "in", studentIdsToSave));
+        
+        getDocs(q).then(existingDocsSnap => {
             existingDocsSnap.docs.forEach(docToDelete => {
                 batch.delete(docToDelete.ref);
             });
-            
-            // Add new records for the students in this group
+
             studentsToSave.forEach((student) => {
                 const status = attendance[student.id];
                  const record = {
@@ -154,15 +158,16 @@ export function AttendanceForm() {
                 batch.set(newDocRef, record);
             });
 
-            await batch.commit();
-
+            return batch.commit();
+        })
+        .then(() => {
             toast({
                 title: 'Sucesso',
                 description: `Frequência para a turma ${groupKey} salva com sucesso!`,
             });
-
-        } catch (e: any) {
-             console.error("Error saving attendance:", e);
+        })
+        .catch(e => {
+            console.error("Error saving attendance:", e);
              const permissionError = new FirestorePermissionError({
                 path: attendanceRef.path,
                 operation: 'write',
@@ -175,9 +180,10 @@ export function AttendanceForm() {
                  title: 'Erro',
                  description: `Falha ao salvar a frequência para ${groupKey}.`,
              });
-        } finally {
+        })
+        .finally(() => {
             setPendingGroups(prev => ({ ...prev, [groupKey]: false }));
-        }
+        });
     };
     
     if (isLoadingStudents || isLoadingAttendance) {
@@ -241,10 +247,9 @@ export function AttendanceForm() {
             </div>
            
              <Accordion 
-                type="single" 
-                collapsible 
-                value={openAccordions[0]}
-                onValueChange={(value) => setOpenAccordions(value ? [value] : [])}
+                type="multiple" 
+                value={openAccordions}
+                onValueChange={setOpenAccordions}
                 className="w-full"
             >
                 {groupedAndSortedStudents.map(group => (

@@ -182,6 +182,7 @@ export function ImportForm() {
               querySnapshot.docs.forEach(doc => {
                   batch.delete(doc.ref);
               });
+              
               await batch.commit();
 
               toast({ title: "Sucesso", description: "Todos os alunos foram removidos do banco de dados."});

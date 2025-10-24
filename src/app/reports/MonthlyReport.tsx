@@ -109,8 +109,8 @@ export function MonthlyReport() {
     }
 
     const handleSearch = () => {
-        setSearchedPeriod(`${months.find(m => m.value === month)?.label}/${year}`);
         startTransition(async () => {
+            setSearchedPeriod(`${months.find(m => m.value === month)?.label}/${year}`);
             const result = await getMonthlyAbsences(month, year, filteredStudents);
             setReport(result);
         });
@@ -169,9 +169,9 @@ export function MonthlyReport() {
                                 </SelectContent>
                             </Select>
                         </div>
-                         <div>
+                         <div className="col-span-2 sm:col-span-1">
                             <Label>Ensino</Label>
-                            <Select value={ensino} onValueChange={setEnsino}>
+                            <Select value={ensino} onValueChange={setEnsino} disabled={isLoadingAllStudents}>
                                 <SelectTrigger><SelectValue placeholder="Ensino" /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">Todos os Ensinos</SelectItem>
@@ -181,7 +181,7 @@ export function MonthlyReport() {
                         </div>
                         <div>
                             <Label>Série</Label>
-                            <Select value={grade} onValueChange={setGrade}>
+                            <Select value={grade} onValueChange={setGrade} disabled={isLoadingAllStudents}>
                                 <SelectTrigger><SelectValue placeholder="Série" /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">Todas as Séries</SelectItem>
@@ -191,7 +191,7 @@ export function MonthlyReport() {
                         </div>
                          <div>
                             <Label>Turma</Label>
-                            <Select value={studentClass} onValueChange={setStudentClass}>
+                            <Select value={studentClass} onValueChange={setStudentClass} disabled={isLoadingAllStudents}>
                                 <SelectTrigger><SelectValue placeholder="Turma" /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">Todas as Turmas</SelectItem>
@@ -201,7 +201,7 @@ export function MonthlyReport() {
                         </div>
                         <div>
                             <Label>Turno</Label>
-                            <Select value={shift} onValueChange={setShift}>
+                            <Select value={shift} onValueChange={setShift} disabled={isLoadingAllStudents}>
                                 <SelectTrigger><SelectValue placeholder="Turno" /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">Todos os Turnos</SelectItem>
@@ -211,7 +211,7 @@ export function MonthlyReport() {
                         </div>
                     </div>
                      <Button onClick={handleSearch} disabled={isPending || isLoadingAllStudents} className="w-full sm:w-auto">
-                        {isPending || isLoadingAllStudents ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
+                        {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
                         Gerar Relatório
                     </Button>
                 </div>
