@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useTransition, useMemo, useEffect } from "react";
-import { format, getMonth, getYear, startOfMonth, endOfMonth } from "date-fns";
+import { format, startOfMonth, endOfDay } from "date-fns";
 import { ptBR } from 'date-fns/locale';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useFirebase, useCollection, useMemoFirebase } from "@/firebase";
-import { collection, getDocs, query, where, orderBy, DocumentData } from 'firebase/firestore';
+import { collection, getDocs, query, where, DocumentData } from 'firebase/firestore';
 import { Label } from "@/components/ui/label";
 import { exportMonthlyReportToPDF } from "@/lib/pdf-export";
 import { cn } from "@/lib/utils";
@@ -43,18 +43,13 @@ export interface MonthlyAbsenceData {
     absenceCount: number;
 }
 
-const months = Array.from({ length: 12 }, (_, i) => ({ value: i, label: format(new Date(2000, i), 'MMMM', {locale: ptBR}) }));
-const currentYear = getYear(new Date());
-const years = Array.from({ length: 5 }, (_, i) => currentYear - i);
 type SortableKeys = keyof MonthlyAbsenceData;
 
 export function MonthlyReport() {
     const { firestore } = useFirebase();
-    const [month, setMonth] = useState<number>(getMonth(new Date()));
-    const [year, setYear] = useState<number>(currentYear);
     const [report, setReport] = useState<MonthlyAbsenceData[]>([]);
     const [isPending, startTransition] = useTransition();
-    const [searchedPeriod, setSearchedPeriod] = useState<string | null>(null);
+    const [searchedDate, setSearchedDate] = useState<Date | null>(null);
     
     const [ensino, setEnsino] = useState<string>('all');
     const [grade, setGrade] = useState<string>('all');
@@ -101,11 +96,12 @@ export function MonthlyReport() {
     }, [studentClass]);
 
 
-    const getMonthlyAbsences = async (month: number, year: number): Promise<AttendanceRecordWithId[]> => {
+    const getMonthlyAbsences = async (): Promise<AttendanceRecordWithId[]> => {
         if (!firestore) return [];
         
-        const startDate = format(startOfMonth(new Date(year, month)), 'yyyy-MM-dd');
-        const endDate = format(endOfMonth(new Date(year, month)), 'yyyy-MM-dd');
+        const today = new Date();
+        const startDate = format(startOfMonth(today), 'yyyy-MM-dd');
+        const endDate = format(endOfDay(today), 'yyyy-MM-dd');
 
         const q = query(
             collection(firestore, 'attendance'),
@@ -119,26 +115,28 @@ export function MonthlyReport() {
             return querySnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as AttendanceRecordWithId));
         } catch (error) {
             console.error("Error fetching monthly absences:", error);
-            // This could be enhanced to show a toast to the user
             return [];
         }
     }
 
     const handleSearch = () => {
-        if (isLoadingAllStudents) return;
+        if (isLoadingAllStudents || !allStudents) return;
 
         startTransition(async () => {
-            const periodLabel = months.find(m => m.value === month)?.label;
-            setSearchedPeriod(`${periodLabel ? periodLabel.charAt(0).toUpperCase() + periodLabel.slice(1) : ''}/${year}`);
+            const today = new Date();
+            setSearchedDate(today);
 
-            const allMonthlyAbsences = await getMonthlyAbsences(month, year);
+            const allMonthlyAbsences = await getMonthlyAbsences();
             
+            const studentMap = new Map(allStudents.map(s => [s.id, s]));
+
             const absenceCounts = new Map<string, number>();
             allMonthlyAbsences.forEach(record => {
-                absenceCounts.set(record.studentId, (absenceCounts.get(record.studentId) || 0) + 1);
+                const student = studentMap.get(record.studentId);
+                if (student) {
+                    absenceCounts.set(record.studentId, (absenceCounts.get(record.studentId) || 0) + 1);
+                }
             });
-
-            const studentMap = new Map(allStudents?.map(s => [s.id, s]));
 
             const reportData: MonthlyAbsenceData[] = [];
             absenceCounts.forEach((count, studentId) => {
@@ -207,10 +205,10 @@ export function MonthlyReport() {
     };
     
     const handleExport = () => {
-        if (!searchedPeriod) return;
+        if (!searchedDate) return;
         const filters = { ensino, grade, studentClass, shift };
         const dataToExport = filteredAndSortedReport.filter(r => r.absenceCount > 0);
-        exportMonthlyReportToPDF(searchedPeriod, filters, dataToExport);
+        exportMonthlyReportToPDF(searchedDate, filters, dataToExport);
     }
     
     if (isLoadingAllStudents && !allStudents) {
@@ -225,8 +223,8 @@ export function MonthlyReport() {
          return (
             <Card>
                  <CardHeader>
-                    <CardTitle>Relatório Mensal de Ausências</CardTitle>
-                    <CardDescription>Selecione um período e filtre para ver o total de faltas por aluno.</CardDescription>
+                    <CardTitle>Relatório do Mês Atual</CardTitle>
+                    <CardDescription>Veja o total de faltas por aluno desde o início do mês até hoje.</CardDescription>
                 </CardHeader>
                 <CardContent className="pt-6">
                     <Alert variant="destructive">
@@ -243,30 +241,12 @@ export function MonthlyReport() {
         <Card>
             <CardHeader>
                 <CardTitle>Relatório Mensal de Ausências</CardTitle>
-                <CardDescription>Selecione um período e filtre para ver o total de faltas por aluno.</CardDescription>
+                <CardDescription>Veja o total de faltas por aluno desde o início do mês até hoje.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
                  <div className="space-y-4">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 items-end">
-                        <div className="col-span-2 sm:col-span-1">
-                            <Label>Mês</Label>
-                            <Select value={String(month)} onValueChange={(val) => setMonth(Number(val))}>
-                                <SelectTrigger className="capitalize"><SelectValue placeholder="Mês" /></SelectTrigger>
-                                <SelectContent>
-                                    {months.map(m => <SelectItem key={m.value} value={String(m.value)} className="capitalize">{m.label}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                         <div className="col-span-2 sm:col-span-1">
-                            <Label>Ano</Label>
-                            <Select value={String(year)} onValueChange={(val) => setYear(Number(val))}>
-                                <SelectTrigger><SelectValue placeholder="Ano" /></SelectTrigger>
-                                <SelectContent>
-                                    {years.map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                         <div className="col-span-2 sm:col-span-1">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+                         <div className="col-span-1">
                             <Label>Ensino</Label>
                             <Select value={ensino} onValueChange={setEnsino} disabled={isLoadingAllStudents || ensinos.length === 0}>
                                 <SelectTrigger><SelectValue placeholder="Ensino" /></SelectTrigger>
@@ -308,11 +288,11 @@ export function MonthlyReport() {
                         </div>
                     </div>
                      <div className="flex flex-col sm:flex-row gap-2">
-                        <Button onClick={handleSearch} disabled={isPending} className="w-full sm:w-auto">
+                        <Button onClick={handleSearch} disabled={isPending || isLoadingAllStudents} className="w-full sm:w-auto">
                             {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
-                            Gerar Relatório
+                            Gerar Relatório do Mês
                         </Button>
-                        <Button onClick={handleExport} disabled={isPending || !searchedPeriod || filteredAndSortedReport.filter(r => r.absenceCount > 0).length === 0} className="w-full sm:w-auto" variant="secondary">
+                        <Button onClick={handleExport} disabled={isPending || !searchedDate || filteredAndSortedReport.filter(r => r.absenceCount > 0).length === 0} className="w-full sm:w-auto" variant="secondary">
                             <FileDown className="mr-2 h-4 w-4" />
                             Exportar para PDF
                         </Button>
@@ -324,9 +304,9 @@ export function MonthlyReport() {
                     <div className="flex justify-center items-center h-60">
                         <Loader2 className="h-8 w-8 animate-spin text-primary" />
                     </div>
-                ) : searchedPeriod && (
+                ) : searchedDate && (
                     <div className="pt-4">
-                         <h3 className="font-semibold mb-2">Resultados para {searchedPeriod}: <span className="font-bold">{filteredAndSortedReport.filter(r => r.absenceCount > 0).length}</span> aluno(s) com faltas</h3>
+                         <h3 className="font-semibold mb-2">Resultados para {format(searchedDate, "'Mês de' MMMM 'até' dd/MM/yyyy", { locale: ptBR })}: <span className="font-bold">{filteredAndSortedReport.filter(r => r.absenceCount > 0).length}</span> aluno(s) com faltas</h3>
                           {filteredAndSortedReport.length === 0 || filteredAndSortedReport.every(r => r.absenceCount === 0) ? (
                             <p className="text-muted-foreground text-center py-4">Nenhuma ausência registrada para o período e filtros selecionados.</p>
                         ) : (
@@ -393,5 +373,6 @@ export function MonthlyReport() {
         </Card>
     );
 }
+
 
     

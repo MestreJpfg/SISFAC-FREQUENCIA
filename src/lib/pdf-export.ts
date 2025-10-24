@@ -1,6 +1,6 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { format } from 'date-fns';
+import { format, startOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import type { AttendanceRecord } from './types';
 import type { MonthlyAbsenceData } from '@/app/reports/MonthlyReport';
@@ -19,7 +19,6 @@ export type DailyAbsenceWithConsecutive = AttendanceRecord & {
 
 
 const formatDate = (date: Date) => format(date, "dd 'de' MMMM 'de' yyyy", { locale: ptBR });
-const formatPeriod = (period: string) => period.charAt(0).toUpperCase() + period.slice(1);
 const formatFilter = (filter: string) => filter === 'all' ? 'Todos' : filter;
 
 const addBackgroundImage = (doc: jsPDF) => {
@@ -80,8 +79,8 @@ export const exportDailyReportToPDF = (date: Date, filters: Filters, absences: D
         body: tableRows,
         startY: 54,
         headStyles: {
-            fillColor: [242, 185, 209], // Cor primária (rosa)
-            textColor: [255, 255, 255], // Branco
+            fillColor: [229, 115, 115], // Cor destrutiva (vermelho claro)
+            textColor: [255, 255, 255],
             fontStyle: 'bold',
         },
         theme: 'grid',
@@ -91,21 +90,20 @@ export const exportDailyReportToPDF = (date: Date, filters: Filters, absences: D
 };
 
 
-export const exportMonthlyReportToPDF = (period: string, filters: Filters, reportData: MonthlyAbsenceData[]) => {
+export const exportMonthlyReportToPDF = (date: Date, filters: Filters, reportData: MonthlyAbsenceData[]) => {
     const doc = new jsPDF();
     addBackgroundImage(doc);
 
-    const formattedPeriod = formatPeriod(period);
-
-    const title = 'Relatório Mensal de Ausências';
-    const fileName = `Relatorio_Mensal_Ausencias_${period.replace('/', '-')}.pdf`;
+    const periodStart = format(startOfMonth(date), "dd/MM/yyyy");
+    const periodEnd = format(date, "dd/MM/yyyy");
+    const periodString = `De ${periodStart} até ${periodEnd}`;
+    const fileName = `Relatorio_Mensal_Ausencias_${format(date, 'yyyy-MM')}.pdf`;
 
     doc.setFontSize(18);
-    doc.text(title, 14, 22);
+    doc.text('Relatório Mensal de Ausências', 14, 22);
     doc.setFontSize(11);
-    doc.text(`Período: ${formattedPeriod}`, 14, 30);
+    doc.text(`Período: ${periodString}`, 14, 30);
     
-    const totalAbsences = reportData.reduce((acc, item) => acc + item.absenceCount, 0);
     const totalStudentsWithAbsences = reportData.length;
     doc.text(`Total de Alunos com Faltas: ${totalStudentsWithAbsences}`, 14, 36);
 
@@ -134,8 +132,8 @@ export const exportMonthlyReportToPDF = (period: string, filters: Filters, repor
         body: tableRows,
         startY: 54,
         headStyles: {
-            fillColor: [242, 185, 209], // Cor primária (rosa)
-            textColor: [255, 255, 255], // Branco
+            fillColor: [229, 115, 115], // Cor destrutiva (vermelho claro)
+            textColor: [255, 255, 255],
             fontStyle: 'bold',
         },
         theme: 'grid',
@@ -143,3 +141,5 @@ export const exportMonthlyReportToPDF = (period: string, filters: Filters, repor
     
     doc.save(fileName);
 };
+
+    
