@@ -294,5 +294,4 @@ export function AttendanceForm() {
 
         </div>
     );
-
-    
+}
