@@ -23,6 +23,7 @@ const formatPeriod = (period: string) => period.charAt(0).toUpperCase() + period
 const formatFilter = (filter: string) => filter === 'all' ? 'Todos' : filter;
 
 const addBackgroundImage = (doc: jsPDF) => {
+    if (!logoBase64) return;
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
     const logoWidth = 100; // Adjust as needed
@@ -30,10 +31,14 @@ const addBackgroundImage = (doc: jsPDF) => {
     const x = (pageWidth - logoWidth) / 2;
     const y = (pageHeight - logoHeight) / 2;
 
-    doc.saveGraphicsState();
-    doc.setGState(new (doc as any).GState({ opacity: 0.2 })); // 80% transparent -> 0.2 opacity
-    doc.addImage(logoBase64, 'PNG', x, y, logoWidth, logoHeight);
-    doc.restoreGraphicsState();
+    try {
+        doc.saveGraphicsState();
+        doc.setGState(new (doc as any).GState({ opacity: 0.2 })); // 80% transparent -> 0.2 opacity
+        doc.addImage(logoBase64, 'PNG', x, y, logoWidth, logoHeight);
+        doc.restoreGraphicsState();
+    } catch (error) {
+        console.error("Could not add background image to PDF: ", error);
+    }
 }
 
 export const exportDailyReportToPDF = (date: Date, filters: Filters, absences: DailyAbsenceWithConsecutive[]) => {
