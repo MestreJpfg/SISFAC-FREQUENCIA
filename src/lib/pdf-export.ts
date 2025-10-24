@@ -33,7 +33,7 @@ const addBackgroundImage = (doc: jsPDF) => {
 
     try {
         doc.saveGraphicsState();
-        doc.setGState(new (doc as any).GState({ opacity: 0.2 })); // 80% transparent -> 0.2 opacity
+        doc.setGState(new (doc as any).GState({ opacity: 0.1 })); // 90% transparent -> 0.1 opacity
         doc.addImage(logoBase64, 'PNG', x, y, logoWidth, logoHeight);
         doc.restoreGraphicsState();
     } catch (error) {
@@ -79,6 +79,12 @@ export const exportDailyReportToPDF = (date: Date, filters: Filters, absences: D
         head: [tableColumn],
         body: tableRows,
         startY: 54,
+        headStyles: {
+            fillColor: [242, 185, 209], // Cor primária (rosa)
+            textColor: [255, 255, 255], // Branco
+            fontStyle: 'bold',
+        },
+        theme: 'grid',
     });
 
     doc.save(fileName);
@@ -127,6 +133,12 @@ export const exportMonthlyReportToPDF = (period: string, filters: Filters, repor
         head: [tableColumn],
         body: tableRows,
         startY: 54,
+        headStyles: {
+            fillColor: [242, 185, 209], // Cor primária (rosa)
+            textColor: [255, 255, 255], // Branco
+            fontStyle: 'bold',
+        },
+        theme: 'grid',
     });
     
     doc.save(fileName);
