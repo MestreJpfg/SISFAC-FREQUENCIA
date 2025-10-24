@@ -12,7 +12,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, writeBatch, doc, getDocs, query, where, orderBy } from 'firebase/firestore';
+import { collection, writeBatch, doc, getDocs, query, where } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { errorEmitter } from '@/firebase/error-emitter';
@@ -27,7 +27,7 @@ type GroupedStudents = {
 export function AttendanceForm() {
     const { firestore } = useFirebase();
     const [attendance, setAttendance] = useState<Record<string, 'present' | 'absent'>>({});
-    const [isPending, startTransition] = useTransition();
+    const [pendingGroups, setPendingGroups] = useState<Record<string, boolean>>({});
     const { toast } = useToast();
     const [activeEnsinoTab, setActiveEnsinoTab] = useState<string | undefined>();
     const [activeTurnoTab, setActiveTurnoTab] = useState<string | undefined>();
@@ -118,44 +118,47 @@ export function AttendanceForm() {
         }));
     };
 
-    const saveAttendance = async () => {
-        if (!firestore || !students) return;
+    const saveAttendance = async (groupKey: string, studentsToSave: Student[]) => {
+        if (!firestore) return;
+
+        setPendingGroups(prev => ({ ...prev, [groupKey]: true }));
         
         const today = format(new Date(), 'yyyy-MM-dd');
         const attendanceRef = collection(firestore, "attendance");
+        const studentIdsToSave = studentsToSave.map(s => s.id);
 
         try {
             const batch = writeBatch(firestore);
             
-            const q = query(collection(firestore, "attendance"), where("date", "==", today));
+            // Delete only existing records for the students in this group for today
+            const q = query(collection(firestore, "attendance"), where("date", "==", today), where("studentId", "in", studentIdsToSave));
             const existingDocsSnap = await getDocs(q);
             existingDocsSnap.docs.forEach(docToDelete => {
                 batch.delete(docToDelete.ref);
             });
             
-            Object.entries(attendance).forEach(([studentId, status]) => {
-                const student = students.find(s => s.id === studentId);
-                if (student) {
-                     const record = {
-                        studentId: student.id,
-                        studentName: student.name,
-                        date: today,
-                        status: status,
-                        grade: student.grade,
-                        class: student.class,
-                        shift: student.shift,
-                        ensino: student.ensino,
-                    };
-                    const newDocRef = doc(attendanceRef);
-                    batch.set(newDocRef, record);
-                }
+            // Add new records for the students in this group
+            studentsToSave.forEach((student) => {
+                const status = attendance[student.id];
+                 const record = {
+                    studentId: student.id,
+                    studentName: student.name,
+                    date: today,
+                    status: status,
+                    grade: student.grade,
+                    class: student.class,
+                    shift: student.shift,
+                    ensino: student.ensino,
+                };
+                const newDocRef = doc(attendanceRef);
+                batch.set(newDocRef, record);
             });
 
             await batch.commit();
 
             toast({
                 title: 'Sucesso',
-                description: "Frequência salva com sucesso!",
+                description: `Frequência para a turma ${groupKey} salva com sucesso!`,
             });
 
         } catch (e: any) {
@@ -163,24 +166,18 @@ export function AttendanceForm() {
              const permissionError = new FirestorePermissionError({
                 path: attendanceRef.path,
                 operation: 'write',
-                requestResourceData: { info: "Batch write for attendance failed." }
+                requestResourceData: { info: `Batch write for attendance failed for group ${groupKey}.` }
             });
             errorEmitter.emit('permission-error', permissionError);
              
              toast({
                  variant: 'destructive',
                  title: 'Erro',
-                 description: "Falha ao salvar a frequência. Verifique as permissões e tente novamente.",
+                 description: `Falha ao salvar a frequência para ${groupKey}.`,
              });
+        } finally {
+            setPendingGroups(prev => ({ ...prev, [groupKey]: false }));
         }
-    };
-
-
-    const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
-        event.preventDefault();
-        startTransition(() => {
-            saveAttendance();
-        });
     };
     
     if (isLoadingStudents || isLoadingAttendance) {
@@ -212,7 +209,7 @@ export function AttendanceForm() {
     const absentCount = Object.values(attendance).length - presentCount;
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="space-y-6">
             <div className="space-y-4">
                  <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
                     <Tabs value={activeEnsinoTab} onValueChange={setActiveEnsinoTab} className="w-full sm:w-auto">
@@ -254,24 +251,37 @@ export function AttendanceForm() {
                     <AccordionItem value={group.key} key={group.key}>
                         <AccordionTrigger className="text-lg font-bold">{group.key}</AccordionTrigger>
                         <AccordionContent>
-                            <div className="p-1">
-                                {group.students.map((student, index) => (
-                                    <div key={student.id}>
-                                        <div className="flex items-center justify-between p-3 rounded-md hover:bg-accent/30 transition-colors">
-                                            <Label htmlFor={student.id} className="cursor-pointer">
-                                                <p className="text-base font-medium">{student.name}</p>
-                                            </Label>
-                                            <Switch
-                                                id={student.id}
-                                                name={student.id}
-                                                checked={attendance[student.id] === 'present'}
-                                                onCheckedChange={(checked) => handleToggle(student.id, checked)}
-                                                aria-label={`Marcar presença para ${student.name}`}
-                                            />
+                            <div className="p-1 space-y-4">
+                                <div>
+                                    {group.students.map((student, index) => (
+                                        <div key={student.id}>
+                                            <div className="flex items-center justify-between p-3 rounded-md hover:bg-accent/30 transition-colors">
+                                                <Label htmlFor={student.id} className="cursor-pointer">
+                                                    <p className="text-base font-medium">{student.name}</p>
+                                                </Label>
+                                                <Switch
+                                                    id={student.id}
+                                                    name={student.id}
+                                                    checked={attendance[student.id] === 'present'}
+                                                    onCheckedChange={(checked) => handleToggle(student.id, checked)}
+                                                    aria-label={`Marcar presença para ${student.name}`}
+                                                />
+                                            </div>
+                                            {index < group.students.length - 1 && <Separator />}
                                         </div>
-                                        {index < group.students.length - 1 && <Separator />}
-                                    </div>
-                                ))}
+                                    ))}
+                                </div>
+                                <Button 
+                                    onClick={() => saveAttendance(group.key, group.students)}
+                                    disabled={pendingGroups[group.key]} 
+                                    className="w-full"
+                                >
+                                    {pendingGroups[group.key] ? (
+                                        <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Salvando...</>
+                                    ) : (
+                                        <><Save className="mr-2 h-4 w-4" /> Salvar Frequência ({group.key})</>
+                                    )}
+                                </Button>
                             </div>
                         </AccordionContent>
                     </AccordionItem>
@@ -282,16 +292,7 @@ export function AttendanceForm() {
                 <p className="text-center text-muted-foreground py-8">Nenhuma turma encontrada para os filtros selecionados.</p>
             )}
 
-
-            <Button type="submit" disabled={isPending} className="w-full">
-                {isPending ? (
-                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Salvando...</>
-                ) : (
-                    <><Save className="mr-2 h-4 w-4" /> Salvar Frequência</>
-                )}
-            </Button>
-        </form>
+        </div>
     );
-}
 
     
