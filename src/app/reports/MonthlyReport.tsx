@@ -69,31 +69,30 @@ export function MonthlyReport() {
         
         const startDate = startOfMonth(new Date(year, month));
         const endDate = endOfMonth(new Date(year, month));
+        const studentIdsSet = new Set(studentsToReport.map(s => s.id));
 
-        const studentIds = studentsToReport.map(s => s.id);
+        const q = query(
+            collection(firestore, 'attendance'),
+            where('date', '>=', format(startDate, 'yyyy-MM-dd')),
+            where('date', '<=', format(endDate, 'yyyy-MM-dd')),
+            where('status', '==', 'absent')
+        );
+
         const absenceCounts = new Map<string, number>();
-
-        // Firestore 'in' queries are limited to 30 items. We need to batch the requests.
-        const studentIdChunks = [];
-        for (let i = 0; i < studentIds.length; i += 30) {
-            studentIdChunks.push(studentIds.slice(i, i + 30));
-        }
-
-        for (const chunk of studentIdChunks) {
-            const q = query(
-                collection(firestore, 'attendance'),
-                where('date', '>=', format(startDate, 'yyyy-MM-dd')),
-                where('date', '<=', format(endDate, 'yyyy-MM-dd')),
-                where('status', '==', 'absent'),
-                where('studentId', 'in', chunk)
-            );
-            
+        
+        try {
             const querySnapshot = await getDocs(q);
 
             querySnapshot.forEach(doc => {
                 const record = doc.data() as AttendanceRecord;
-                absenceCounts.set(record.studentId, (absenceCounts.get(record.studentId) || 0) + 1);
+                if (studentIdsSet.has(record.studentId)) {
+                    absenceCounts.set(record.studentId, (absenceCounts.get(record.studentId) || 0) + 1);
+                }
             });
+        } catch (error) {
+            console.error("Error fetching monthly absences:", error);
+            // Optionally, you can handle the error in the UI
+            return []; // Return empty array on error
         }
 
         return studentsToReport.map(student => ({
@@ -111,8 +110,12 @@ export function MonthlyReport() {
     const handleSearch = () => {
         startTransition(async () => {
             setSearchedPeriod(`${months.find(m => m.value === month)?.label}/${year}`);
-            const result = await getMonthlyAbsences(month, year, filteredStudents);
-            setReport(result);
+            if (filteredStudents.length > 0) {
+              const result = await getMonthlyAbsences(month, year, filteredStudents);
+              setReport(result);
+            } else {
+              setReport([]);
+            }
         });
     };
     
@@ -132,7 +135,7 @@ export function MonthlyReport() {
                     <CardDescription>Selecione um período e filtre para ver o total de faltas por aluno.</CardDescription>
                 </CardHeader>
                 <CardContent className="pt-6">
-                    <Alert>
+                    <Alert variant="destructive">
                         <TriangleAlert className="h-4 w-4" />
                         <AlertTitle>Nenhum Aluno</AlertTitle>
                         <AlertDescription>Não há dados de alunos para gerar o relatório. Por favor, importe os alunos primeiro.</AlertDescription>
