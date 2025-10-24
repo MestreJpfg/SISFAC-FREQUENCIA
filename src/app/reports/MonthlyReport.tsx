@@ -135,7 +135,7 @@ export function MonthlyReport() {
             console.error("Error fetching monthly absences:", error);
             return []; 
         }
-
+        
         return studentsToReport.map(student => ({
             studentId: student.id,
             studentName: student.name,
