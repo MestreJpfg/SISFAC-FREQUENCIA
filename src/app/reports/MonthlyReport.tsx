@@ -13,9 +13,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useFirebase, useCollection, useMemoFirebase } from "@/firebase";
-import { collection, getDocs, query, where, orderBy } from 'firebase/firestore';
+import { collection, getDocs, query, where, orderBy, DocumentData } from 'firebase/firestore';
 import { Label } from "@/components/ui/label";
 import { exportMonthlyReportToPDF } from "@/lib/pdf-export";
+
+type StudentWithId = Student & { id: string };
 
 export interface MonthlyAbsenceData {
     studentId: string;
@@ -49,40 +51,31 @@ export function MonthlyReport() {
         return query(collection(firestore, 'students'));
     }, [firestore]);
 
-    const { data: allStudents, isLoading: isLoadingAllStudents } = useCollection<Student>(studentsQuery);
+    const { data: allStudents, isLoading: isLoadingAllStudents } = useCollection<StudentWithId>(studentsQuery);
     
     const { ensinos, grades, classes, shifts } = useMemo(() => {
         if (!allStudents) return { ensinos: [], grades: [], classes: [], shifts: [] };
 
+        const filteredByEnsino = ensino === 'all' ? allStudents : allStudents.filter(s => s.ensino === ensino);
         const uniqueEnsinos = [...new Set(allStudents.map(s => s.ensino))].sort();
 
-        const studentsInEnsino = ensino === 'all' 
-            ? allStudents 
-            : allStudents.filter(s => s.ensino === ensino);
-        const uniqueGrades = [...new Set(studentsInEnsino.map(s => s.grade))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+        const filteredByGrade = grade === 'all' ? filteredByEnsino : filteredByEnsino.filter(s => s.grade === grade);
+        const uniqueGrades = [...new Set(filteredByEnsino.map(s => s.grade))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
 
-        const studentsInGrade = grade === 'all' 
-            ? studentsInEnsino 
-            : studentsInEnsino.filter(s => s.grade === grade);
-        const uniqueClasses = [...new Set(studentsInGrade.map(s => s.class))].sort();
-        
-        const studentsInClass = studentClass === 'all'
-            ? studentsInGrade
-            : studentsInGrade.filter(s => s.class === studentClass);
-        const uniqueShifts = [...new Set(studentsInClass.map(s => s.shift))].sort();
+        const filteredByClass = studentClass === 'all' ? filteredByGrade : filteredByGrade.filter(s => s.class === studentClass);
+        const uniqueClasses = [...new Set(filteredByGrade.map(s => s.class))].sort();
+
+        const uniqueShifts = [...new Set(filteredByClass.map(s => s.shift))].sort();
 
         return { ensinos: uniqueEnsinos, grades: uniqueGrades, classes: uniqueClasses, shifts: uniqueShifts };
     }, [allStudents, ensino, grade, studentClass]);
 
     useEffect(() => {
         setGrade('all');
-        setStudentClass('all');
-        setShift('all');
     }, [ensino]);
 
     useEffect(() => {
         setStudentClass('all');
-        setShift('all');
     }, [grade]);
 
     useEffect(() => {
@@ -100,7 +93,7 @@ export function MonthlyReport() {
     }, [allStudents, ensino, grade, studentClass, shift]);
 
 
-    const getMonthlyAbsences = async (month: number, year: number, studentsToReport: Student[]): Promise<MonthlyAbsenceData[]> => {
+    const getMonthlyAbsences = async (month: number, year: number, studentsToReport: StudentWithId[]): Promise<MonthlyAbsenceData[]> => {
         if (!firestore || studentsToReport.length === 0) return [];
         
         const startDate = startOfMonth(new Date(year, month));
@@ -326,5 +319,3 @@ export function MonthlyReport() {
         </Card>
     );
 }
-
-    

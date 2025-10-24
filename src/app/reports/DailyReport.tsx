@@ -11,13 +11,14 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import type { AttendanceRecord, Student } from "@/lib/types";
+import type { AttendanceRecord } from "@/lib/types";
 import { useFirebase, useCollection, useMemoFirebase } from "@/firebase";
-import { collection, getDocs, query, where, orderBy } from 'firebase/firestore';
+import { collection, getDocs, query, where, orderBy, DocumentData } from 'firebase/firestore';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { exportDailyReportToPDF, type DailyAbsenceWithConsecutive } from "@/lib/pdf-export";
 
+type Student = { id: string; name: string; ensino: string; grade: string; class: string; shift: string; };
 
 export function DailyReport() {
     const { firestore } = useFirebase();
@@ -37,35 +38,26 @@ export function DailyReport() {
     const { ensinos, grades, classes, shifts } = useMemo(() => {
         if (!allStudents) return { ensinos: [], grades: [], classes: [], shifts: [] };
 
+        const filteredByEnsino = ensino === 'all' ? allStudents : allStudents.filter(s => s.ensino === ensino);
         const uniqueEnsinos = [...new Set(allStudents.map(s => s.ensino))].sort();
 
-        const studentsInEnsino = ensino === 'all' 
-            ? allStudents 
-            : allStudents.filter(s => s.ensino === ensino);
-        const uniqueGrades = [...new Set(studentsInEnsino.map(s => s.grade))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+        const filteredByGrade = grade === 'all' ? filteredByEnsino : filteredByEnsino.filter(s => s.grade === grade);
+        const uniqueGrades = [...new Set(filteredByEnsino.map(s => s.grade))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
 
-        const studentsInGrade = grade === 'all' 
-            ? studentsInEnsino 
-            : studentsInEnsino.filter(s => s.grade === grade);
-        const uniqueClasses = [...new Set(studentsInGrade.map(s => s.class))].sort();
-        
-        const studentsInClass = studentClass === 'all'
-            ? studentsInGrade
-            : studentsInGrade.filter(s => s.class === studentClass);
-        const uniqueShifts = [...new Set(studentsInClass.map(s => s.shift))].sort();
+        const filteredByClass = studentClass === 'all' ? filteredByGrade : filteredByGrade.filter(s => s.class === studentClass);
+        const uniqueClasses = [...new Set(filteredByGrade.map(s => s.class))].sort();
+
+        const uniqueShifts = [...new Set(filteredByClass.map(s => s.shift))].sort();
 
         return { ensinos: uniqueEnsinos, grades: uniqueGrades, classes: uniqueClasses, shifts: uniqueShifts };
     }, [allStudents, ensino, grade, studentClass]);
     
     useEffect(() => {
         setGrade('all');
-        setStudentClass('all');
-        setShift('all');
     }, [ensino]);
     
     useEffect(() => {
         setStudentClass('all');
-        setShift('all');
     }, [grade]);
 
     useEffect(() => {
@@ -77,8 +69,7 @@ export function DailyReport() {
         if (!firestore) return [];
         const dateString = format(targetDate, 'yyyy-MM-dd');
         
-        const attendanceRef = collection(firestore, 'attendance');
-        let q = query(attendanceRef, where('date', '==', dateString), where('status', '==', 'absent'));
+        let q = query(collection(firestore, 'attendance'), where('date', '==', dateString), where('status', '==', 'absent'));
         
         const querySnapshot = await getDocs(q);
         
@@ -226,16 +217,18 @@ export function DailyReport() {
                                         <TableHead>Série</TableHead>
                                         <TableHead>Turma</TableHead>
                                         <TableHead>Turno</TableHead>
+                                        <TableHead>Falta Consecutiva</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {filteredAbsences.map((record, index) => (
-                                        <TableRow key={`${record.studentId}-${index}`}>
+                                    {filteredAbsences.map((record) => (
+                                        <TableRow key={record.id}>
                                             <TableCell className="font-medium">{record.studentName}</TableCell>
                                             <TableCell>{record.ensino}</TableCell>
                                             <TableCell>{record.grade}</TableCell>
                                             <TableCell>{record.class}</TableCell>
                                             <TableCell>{record.shift}</TableCell>
+                                            <TableCell>{previousDayAbsences.some(a => a.studentId === record.studentId) ? 'Sim' : 'Não'}</TableCell>
                                         </TableRow>
                                     ))}
                                 </TableBody>
@@ -248,5 +241,3 @@ export function DailyReport() {
         </Card>
     );
 }
-
-    

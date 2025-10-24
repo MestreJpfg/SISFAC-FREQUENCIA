@@ -1,5 +1,4 @@
 export interface Student {
-  id: string;
   name: string;
   class: string; // Turma
   grade: string; // Série
@@ -8,6 +7,7 @@ export interface Student {
 }
 
 export interface AttendanceRecord {
+  id: string; // O ID do documento do Firestore
   studentId: string;
   studentName: string;
   date: string; // YYYY-MM-DD

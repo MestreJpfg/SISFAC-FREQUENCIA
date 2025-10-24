@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
-import type { Student, AttendanceRecord } from '@/lib/types';
+import type { Student } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -12,16 +12,25 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, writeBatch, doc, getDocs, query, where } from 'firebase/firestore';
+import { collection, writeBatch, doc, getDocs, query, where, DocumentData } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { errorEmitter } from '@/firebase/error-emitter';
 import Link from 'next/link';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
+// Definindo o tipo para os alunos com ID
+type StudentWithId = Student & { id: string };
+
+type AttendanceRecordWithId = {
+    id: string;
+    studentId: string;
+    date: string;
+    status: 'present' | 'absent';
+};
 
 type GroupedStudents = {
-    [groupKey: string]: Student[];
+    [groupKey: string]: StudentWithId[];
 }
 
 export function AttendanceForm() {
@@ -46,7 +55,7 @@ export function AttendanceForm() {
         return query(collection(firestore, 'attendance'), where('date', '==', todayString));
     }, [firestore, todayString]);
 
-    const { data: todaysAttendance, isLoading: isLoadingAttendance } = useCollection<AttendanceRecord>(attendanceQuery);
+    const { data: todaysAttendance, isLoading: isLoadingAttendance } = useCollection<AttendanceRecordWithId>(attendanceQuery);
 
     useEffect(() => {
         if (students) {
@@ -71,10 +80,24 @@ export function AttendanceForm() {
         if (uniqueEnsinos.length > 0 && !activeEnsinoTab) {
             setActiveEnsinoTab(uniqueEnsinos[0]);
         }
-        if (uniqueTurnos.length > 0 && !activeTurnoTab) {
-            setActiveTurnoTab(uniqueTurnos[0]);
+    }, [uniqueEnsinos, activeEnsinoTab]);
+
+     useEffect(() => {
+        if (activeEnsinoTab && students) {
+             const turnosForEnsino = [...new Set(students.filter(s => s.ensino === activeEnsinoTab).map(s => s.shift || 'N/A'))].sort();
+             if (turnosForEnsino.length > 0) {
+                setActiveTurnoTab(turnosForEnsino[0]);
+             } else {
+                setActiveTurnoTab(undefined);
+             }
         }
-    }, [uniqueEnsinos, activeEnsinoTab, uniqueTurnos, activeTurnoTab]);
+    }, [activeEnsinoTab, students]);
+
+
+    const turnosForSelectedEnsino = useMemo(() => {
+        if (!students || !activeEnsinoTab) return [];
+        return [...new Set(students.filter(s => s.ensino === activeEnsinoTab).map(s => s.shift || 'N/A'))].sort();
+    }, [students, activeEnsinoTab]);
 
 
     const groupedAndSortedStudents = useMemo(() => {
@@ -99,6 +122,13 @@ export function AttendanceForm() {
             .sort((a, b) => {
                 const [aGrade] = a[0].split(' / ');
                 const [bGrade] = b[0].split(' / ');
+                // Simple numeric sort for grade names like "6º ANO"
+                const aNum = parseInt(aGrade, 10);
+                const bNum = parseInt(bGrade, 10);
+                if (!isNaN(aNum) && !isNaN(bNum)) {
+                    if (aNum !== bNum) return aNum - bNum;
+                }
+                // Fallback to localeCompare for non-numeric or equal grades
                 const gradeCompare = aGrade.localeCompare(bGrade, undefined, { numeric: true });
                 if (gradeCompare !== 0) return gradeCompare;
                 return a[0].localeCompare(b[0]);
@@ -107,8 +137,13 @@ export function AttendanceForm() {
     }, [students, activeEnsinoTab, activeTurnoTab]);
 
     useEffect(() => {
-        setOpenAccordions([]);
-    }, [activeEnsinoTab, activeTurnoTab]);
+        // Automatically open the first accordion for the new set of groups
+        if (groupedAndSortedStudents.length > 0) {
+            setOpenAccordions([groupedAndSortedStudents[0].key]);
+        } else {
+            setOpenAccordions([]);
+        }
+    }, [groupedAndSortedStudents]);
 
 
     const handleToggle = (studentId: string, isPresent: boolean) => {
@@ -118,7 +153,7 @@ export function AttendanceForm() {
         }));
     };
 
-    const saveAttendance = (groupKey: string, studentsToSave: Student[]) => {
+    const saveAttendance = (groupKey: string, studentsToSave: StudentWithId[]) => {
         if (!firestore) return;
 
         setPendingGroups(prev => ({ ...prev, [groupKey]: true }));
@@ -129,16 +164,27 @@ export function AttendanceForm() {
         
         const batch = writeBatch(firestore);
         
-        const q = query(collection(firestore, "attendance"), where("date", "==", today), where("studentId", "in", studentIdsToSave));
-        
-        getDocs(q).then(existingDocsSnap => {
-            existingDocsSnap.docs.forEach(docToDelete => {
-                batch.delete(docToDelete.ref);
+        // Firestore 'in' query supports a maximum of 30 elements
+        const idChunks: string[][] = [];
+        for (let i = 0; i < studentIdsToSave.length; i += 30) {
+            idChunks.push(studentIdsToSave.slice(i, i + 30));
+        }
+
+        const deletionPromises = idChunks.map(chunk => {
+            const q = query(collection(firestore, "attendance"), where("date", "==", today), where("studentId", "in", chunk));
+            return getDocs(q);
+        });
+
+        Promise.all(deletionPromises).then(snapshots => {
+            snapshots.forEach(snapshot => {
+                snapshot.docs.forEach(docToDelete => {
+                    batch.delete(docToDelete.ref);
+                });
             });
 
             studentsToSave.forEach((student) => {
                 const status = attendance[student.id];
-                 const record = {
+                 const record: Omit<AttendanceRecordWithId, 'id'> = {
                     studentId: student.id,
                     studentName: student.name,
                     date: today,
@@ -233,7 +279,7 @@ export function AttendanceForm() {
 
                 <Tabs value={activeTurnoTab} onValueChange={setActiveTurnoTab} className="w-full sm:w-auto">
                     <TabsList>
-                        {uniqueTurnos.map(turno => (
+                        {turnosForSelectedEnsino.map(turno => (
                             <TabsTrigger key={turno} value={turno}>{turno}</TabsTrigger>
                         ))}
                     </TabsList>
@@ -287,7 +333,7 @@ export function AttendanceForm() {
                 ))}
             </Accordion>
             
-            {groupedAndSortedStudents.length === 0 && (
+            {groupedAndSortedStudents.length === 0 && activeEnsinoTab && activeTurnoTab && (
                 <p className="text-center text-muted-foreground py-8">Nenhuma turma encontrada para os filtros selecionados.</p>
             )}
 
