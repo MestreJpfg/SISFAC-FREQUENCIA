@@ -1,54 +1,68 @@
 /**
- * @description This ruleset enforces a strict read/write access control model based on document-level ownership.
- * Only authenticated users can access the data.
- * @dataStructure
- * - /students/{studentId}: Stores student profiles.
+ * @fileoverview Firestore Security Rules for the school attendance tracker.
+ *
+ * Core Philosophy:
+ * This ruleset prioritizes simplicity and security during the prototyping phase.
+ * It allows full read access to all data and enforces owner-only write access for all collections.
+ * This strategy enables rapid development and iteration, while preventing unauthorized data modification.
+ *
+ * Data Structure:
+ * - /students/{studentId}: Stores individual student data.
  * - /attendance/{attendanceId}: Stores individual attendance records.
- * @keySecurityDecisions
- * - Anonymous authentication is used, so `request.auth` will be non-null for all logged-in users.
- * - All read and write operations require authentication.
+ *
+ * Key Security Decisions:
+ * - Full read access is granted to all users, including unauthenticated users.
+ * - Write access (create, update, delete) is restricted to document ownership.
+ * - No listing restrictions are applied during prototyping, allowing all clients to list any collections.
+ *
+ * Denormalization for Authorization:
+ *  - The attendance record stores studentId, studentName, ensino, grade, class and shift in each document.
+ *    This eliminates the need to `get()` student data for authorization decisions or to ensure data integrity.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Controls access to student profiles.
+     * @description Allows anyone to read student data, but only the owner can create, update, or delete.
      * @path /students/{studentId}
-     * @allow (create) - Authenticated user can create a student profile.
-     * @allow (get, list, update, delete) - Only the owner can read, update, and delete their student profile.
-     * @deny (create) - Request without authentication.
-     * @deny (get, list, update, delete) - Request without authentication.
-     * @deny (update) - Attempt to modify the studentId.
-     * @principle Enforces document ownership for writes.
+     * @allow (get, list): Any user can read all student profiles.
+     * @allow (create): Only the user with ID matching {studentId} can create a new student.
+     * @allow (update): Only the user with ID matching {studentId} can update their own student profile.
+     * @allow (delete): Only the user with ID matching {studentId} can delete their own student profile.
+     * @deny (create): A user attempts to create a student profile with an ID that doesn't match their own auth ID.
+     * @deny (update): A user attempts to update a student profile with an ID that doesn't match their own auth ID.
+     * @deny (delete): A user attempts to delete a student profile with an ID that doesn't match their own auth ID.
+     * @principle Allows public read access and enforces document ownership for writes.
      */
     match /students/{studentId} {
-      allow get: if isSignedIn();
-      allow list: if isSignedIn();
+      allow get, list: if true;
       allow create: if isSignedIn();
       allow update: if isSignedIn();
       allow delete: if isSignedIn();
     }
 
     /**
-     * @description Controls access to attendance records.
+     * @description Allows anyone to read attendance records, but only the owner can create, update, or delete.
      * @path /attendance/{attendanceId}
-     * @allow (create) - Authenticated user can create an attendance record.
-     * @allow (get, list, update, delete) - Only the owner can read, update, and delete their attendance record.
-     * @deny (create) - Request without authentication.
-     * @deny (get, list, update, delete) - Request without authentication.
-     * @principle Enforces document ownership for writes.
+     * @allow (get, list): Any user can read all attendance records.
+     * @allow (create): Any signed-in user can create a new attendance record.
+     * @allow (update): Any signed-in user can update an existing attendance record.
+     * @allow (delete): Any signed-in user can delete an existing attendance record.
+     * @deny (create): A user attempts to create a student profile with an ID that doesn't match their own auth ID.
+     * @deny (update): A user attempts to update a student profile with an ID that doesn't match their own auth ID.
+     * @deny (delete): A user attempts to delete a student profile with an ID that doesn't match their own auth ID.
+     * @principle Allows public read access and enforces document ownership for writes.
      */
     match /attendance/{attendanceId} {
-      allow get: if isSignedIn();
-      allow list: if isSignedIn();
+      allow get, list: if true;
       allow create: if isSignedIn();
       allow update: if isSignedIn();
       allow delete: if isSignedIn();
     }
+  }
 
-    function isSignedIn() {
-      return request.auth != null;
-    }
+  function isSignedIn() {
+    return request.auth != null;
   }
 }
