@@ -123,13 +123,14 @@ export function MonthlyReport() {
             }
         });
     };
-
+    
+    // Set initial report on first load with all students
     useEffect(() => {
-        if (!isLoadingAllStudents && allStudents && allStudents.length > 0) {
+        if (firestore && allStudents && !searchedPeriod) {
             handleSearch();
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [filteredStudents, month, year, isLoadingAllStudents, allStudents]);
+    }, [firestore, allStudents, searchedPeriod]);
     
     if (isLoadingAllStudents) {
          return (
@@ -166,7 +167,7 @@ export function MonthlyReport() {
             <CardContent className="space-y-6">
                  <div className="space-y-4">
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 items-end">
-                        <div className="col-span-1">
+                        <div className="col-span-2 sm:col-span-1">
                             <Label>Mês</Label>
                             <Select value={String(month)} onValueChange={(val) => setMonth(Number(val))}>
                                 <SelectTrigger className="capitalize"><SelectValue placeholder="Mês" /></SelectTrigger>
@@ -175,7 +176,7 @@ export function MonthlyReport() {
                                 </SelectContent>
                             </Select>
                         </div>
-                         <div className="col-span-1">
+                         <div className="col-span-2 sm:col-span-1">
                             <Label>Ano</Label>
                             <Select value={String(year)} onValueChange={(val) => setYear(Number(val))}>
                                 <SelectTrigger><SelectValue placeholder="Ano" /></SelectTrigger>
@@ -186,7 +187,7 @@ export function MonthlyReport() {
                         </div>
                          <div className="col-span-2 sm:col-span-1">
                             <Label>Ensino</Label>
-                            <Select value={ensino} onValueChange={setEnsino} disabled={isLoadingAllStudents || !ensinos.length}>
+                            <Select value={ensino} onValueChange={setEnsino} disabled={!ensinos.length}>
                                 <SelectTrigger><SelectValue placeholder="Ensino" /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">Todos os Ensinos</SelectItem>
@@ -196,7 +197,7 @@ export function MonthlyReport() {
                         </div>
                         <div>
                             <Label>Série</Label>
-                            <Select value={grade} onValueChange={setGrade} disabled={isLoadingAllStudents || !grades.length}>
+                            <Select value={grade} onValueChange={setGrade} disabled={!grades.length}>
                                 <SelectTrigger><SelectValue placeholder="Série" /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">Todas as Séries</SelectItem>
@@ -206,7 +207,7 @@ export function MonthlyReport() {
                         </div>
                          <div>
                             <Label>Turma</Label>
-                            <Select value={studentClass} onValueChange={setStudentClass} disabled={isLoadingAllStudents || !classes.length}>
+                            <Select value={studentClass} onValueChange={setStudentClass} disabled={!classes.length}>
                                 <SelectTrigger><SelectValue placeholder="Turma" /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">Todas as Turmas</SelectItem>
@@ -216,7 +217,7 @@ export function MonthlyReport() {
                         </div>
                         <div>
                             <Label>Turno</Label>
-                            <Select value={shift} onValueChange={setShift} disabled={isLoadingAllStudents || !shifts.length}>
+                            <Select value={shift} onValueChange={setShift} disabled={!shifts.length}>
                                 <SelectTrigger><SelectValue placeholder="Turno" /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">Todos os Turnos</SelectItem>
@@ -241,7 +242,7 @@ export function MonthlyReport() {
                          <h3 className="font-semibold mb-2 capitalize">Total de ausências em {searchedPeriod}:</h3>
                          {filteredStudents.length === 0 ? (
                             <p className="text-muted-foreground text-center py-4">Nenhum aluno encontrado para os filtros selecionados.</p>
-                         ) : report.every(r => r.absenceCount === 0) ? (
+                         ) : report.length === 0 || report.every(r => r.absenceCount === 0) ? (
                             <p className="text-muted-foreground text-center py-4">Nenhuma ausência registrada para o período e filtros selecionados.</p>
                         ) : (
                             <ScrollArea className="h-96 rounded-md border">
@@ -257,7 +258,7 @@ export function MonthlyReport() {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {report.map((data) => (
+                                    {report.filter(r => r.absenceCount > 0).map((data) => (
                                         <TableRow key={data.studentId}>
                                             <TableCell className="font-medium">{data.studentName}</TableCell>
                                             <TableCell>{data.studentEnsino}</TableCell>
