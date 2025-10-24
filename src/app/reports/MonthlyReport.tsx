@@ -97,8 +97,7 @@ export function MonthlyReport() {
             });
         } catch (error) {
             console.error("Error fetching monthly absences:", error);
-            // In a real app, you might want to show a toast to the user
-            return []; // Return empty array on error
+            return []; 
         }
 
         return studentsToReport.map(student => ({
@@ -125,7 +124,6 @@ export function MonthlyReport() {
         });
     };
 
-     // Auto-run search when filters change and students are loaded
     useEffect(() => {
         if (!isLoadingAllStudents && allStudents && allStudents.length > 0) {
             handleSearch();
@@ -278,5 +276,4 @@ export function MonthlyReport() {
             </CardContent>
         </Card>
     );
-
-    
+}
