@@ -7,7 +7,7 @@ import { ptBR } from 'date-fns/locale';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import type { Student, AttendanceRecord } from "@/lib/types";
+import type { Student } from "@/lib/types";
 import { Loader2, Search, TriangleAlert, FileDown } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -18,6 +18,19 @@ import { Label } from "@/components/ui/label";
 import { exportMonthlyReportToPDF } from "@/lib/pdf-export";
 
 type StudentWithId = Student & { id: string };
+
+type AttendanceRecordWithId = DocumentData & {
+    id: string;
+    studentId: string;
+    studentName: string;
+    date: string;
+    status: 'present' | 'absent';
+    grade: string;
+    class: string;
+    shift: string;
+    ensino: string;
+};
+
 
 export interface MonthlyAbsenceData {
     studentId: string;
@@ -93,56 +106,28 @@ export function MonthlyReport() {
     }, [allStudents, ensino, grade, studentClass, shift]);
 
 
-    const getMonthlyAbsences = async (month: number, year: number, studentsToReport: StudentWithId[]): Promise<MonthlyAbsenceData[]> => {
-        if (!firestore || studentsToReport.length === 0) return [];
+    const getMonthlyAbsences = async (month: number, year: number): Promise<AttendanceRecordWithId[]> => {
+        if (!firestore) return [];
         
-        const startDate = startOfMonth(new Date(year, month));
-        const endDate = endOfMonth(new Date(year, month));
-        const studentIds = studentsToReport.map(s => s.id);
+        const startDate = format(startOfMonth(new Date(year, month)), 'yyyy-MM-dd');
+        const endDate = format(endOfMonth(new Date(year, month)), 'yyyy-MM-dd');
 
-        const absenceCounts = new Map<string, number>();
-        const studentIdChunks: string[][] = [];
-        // Firestore 'in' query supports a maximum of 30 elements in its array
-        for (let i = 0; i < studentIds.length; i += 30) {
-            studentIdChunks.push(studentIds.slice(i, i + 30));
-        }
+        const q = query(
+            collection(firestore, 'attendance'),
+            where('date', '>=', startDate),
+            where('date', '<=', endDate),
+            where('status', '==', 'absent')
+        );
 
         try {
-            const queryPromises = studentIdChunks.map(chunk => {
-                const q = query(
-                    collection(firestore, 'attendance'),
-                    where('studentId', 'in', chunk),
-                    where('date', '>=', format(startDate, 'yyyy-MM-dd')),
-                    where('date', '<=', format(endDate, 'yyyy-MM-dd')),
-                    where('status', '==', 'absent')
-                );
-                return getDocs(q);
-            });
-            
-            const querySnapshots = await Promise.all(queryPromises);
-
-            for (const querySnapshot of querySnapshots) {
-                querySnapshot.forEach(doc => {
-                    const record = doc.data() as AttendanceRecord;
-                    absenceCounts.set(record.studentId, (absenceCounts.get(record.studentId) || 0) + 1);
-                });
-            }
+            const querySnapshot = await getDocs(q);
+            return querySnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as AttendanceRecordWithId));
         } catch (error) {
             console.error("Error fetching monthly absences:", error);
-            return []; 
+            return [];
         }
-        
-        return studentsToReport.map(student => ({
-            studentId: student.id,
-            studentName: student.name,
-            studentClass: student.class,
-            studentGrade: student.grade,
-            studentShift: student.shift,
-            studentEnsino: student.ensino,
-            absenceCount: absenceCounts.get(student.id) || 0,
-        }))
-         .sort((a, b) => b.absenceCount - a.absenceCount || a.studentName.localeCompare(b.studentName));
     }
+
 
     const handleSearch = () => {
         if (isLoadingAllStudents) return;
@@ -151,12 +136,40 @@ export function MonthlyReport() {
             const periodLabel = months.find(m => m.value === month)?.label;
             setSearchedPeriod(`${periodLabel ? periodLabel.charAt(0).toUpperCase() + periodLabel.slice(1) : ''}/${year}`);
 
-            if (filteredStudents.length > 0) {
-              const result = await getMonthlyAbsences(month, year, filteredStudents);
-              setReport(result);
-            } else {
-              setReport([]);
-            }
+            const allAbsences = await getMonthlyAbsences(month, year);
+            
+            const filteredAbsences = allAbsences
+                .filter(record => ensino === 'all' || record.ensino === ensino)
+                .filter(record => grade === 'all' || record.grade === grade)
+                .filter(record => studentClass === 'all' || record.class === studentClass)
+                .filter(record => shift === 'all' || record.shift === shift);
+
+            const absenceCounts = new Map<string, number>();
+            filteredAbsences.forEach(record => {
+                absenceCounts.set(record.studentId, (absenceCounts.get(record.studentId) || 0) + 1);
+            });
+
+            const studentMap = new Map(allStudents?.map(s => [s.id, s]));
+
+            const reportData: MonthlyAbsenceData[] = [];
+            absenceCounts.forEach((count, studentId) => {
+                const student = studentMap.get(studentId);
+                if (student) {
+                    reportData.push({
+                        studentId: student.id,
+                        studentName: student.name,
+                        studentClass: student.class,
+                        studentGrade: student.grade,
+                        studentShift: student.shift,
+                        studentEnsino: student.ensino,
+                        absenceCount: count,
+                    });
+                }
+            });
+            
+            reportData.sort((a, b) => b.absenceCount - a.absenceCount || a.studentName.localeCompare(b.studentName));
+
+            setReport(reportData);
         });
     };
     
@@ -281,9 +294,7 @@ export function MonthlyReport() {
                 ) : searchedPeriod && (
                     <div className="pt-4">
                          <h3 className="font-semibold mb-2">Resultados para {searchedPeriod}:</h3>
-                         {filteredStudents.length === 0 ? (
-                            <p className="text-muted-foreground text-center py-4">Nenhum aluno encontrado para os filtros selecionados.</p>
-                         ) : report.length === 0 || report.every(r => r.absenceCount === 0) ? (
+                          {report.length === 0 || report.every(r => r.absenceCount === 0) ? (
                             <p className="text-muted-foreground text-center py-4">Nenhuma ausência registrada para o período e filtros selecionados.</p>
                         ) : (
                             <ScrollArea className="h-96 rounded-md border">
@@ -319,3 +330,5 @@ export function MonthlyReport() {
         </Card>
     );
 }
+
+    
