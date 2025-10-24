@@ -1,3 +1,4 @@
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { FileUp, Users, FileText } from "lucide-react";
@@ -6,7 +7,7 @@ import Link from "next/link";
 export default function Home() {
   const features = [
     {
-      title: "Marcar Frequência",
+      title: "Registrar Frequência",
       description: "Marque a presença diária dos alunos de forma rápida e fácil.",
       icon: <Users className="h-8 w-8 text-primary" />,
       href: "/attendance",

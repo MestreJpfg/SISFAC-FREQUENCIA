@@ -10,7 +10,7 @@ import { usePathname } from 'next/navigation';
 
 const navLinks = [
     { href: "/import", label: "Importar Dados", icon: FileUp },
-    { href: "/attendance", label: "Marcar Frequência", icon: Users },
+    { href: "/attendance", label: "Registrar Frequência", icon: Users },
     { href: "/reports", label: "Relatórios", icon: FileText },
 ];
 
