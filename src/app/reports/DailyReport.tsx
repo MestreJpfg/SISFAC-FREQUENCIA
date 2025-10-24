@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useTransition, useEffect, useMemo } from "react";
-import { format } from "date-fns";
+import { format, subDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Calendar as CalendarIcon, Loader2, Search, FileDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -16,13 +16,14 @@ import { useFirebase, useCollection, useMemoFirebase } from "@/firebase";
 import { collection, getDocs, query, where, orderBy } from 'firebase/firestore';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { exportDailyReportToPDF } from "@/lib/pdf-export";
+import { exportDailyReportToPDF, type DailyAbsenceWithConsecutive } from "@/lib/pdf-export";
 
 
 export function DailyReport() {
     const { firestore } = useFirebase();
     const [date, setDate] = useState<Date | undefined>(new Date());
     const [absences, setAbsences] = useState<AttendanceRecord[]>([]);
+    const [previousDayAbsences, setPreviousDayAbsences] = useState<AttendanceRecord[]>([]);
     const [isPending, startTransition] = useTransition();
     const [searchedDate, setSearchedDate] = useState<Date | null>(null);
 
@@ -51,24 +52,27 @@ export function DailyReport() {
     }, [allStudents, ensino, grade, studentClass]);
     
     useEffect(() => {
+        if (isLoadingAllStudents) return;
         setGrade('all');
         setStudentClass('all');
         setShift('all');
-    }, [ensino]);
+    }, [ensino, isLoadingAllStudents]);
     
     useEffect(() => {
+        if (isLoadingAllStudents) return;
         setStudentClass('all');
         setShift('all');
-    }, [ensino, grade]);
+    }, [ensino, grade, isLoadingAllStudents]);
 
     useEffect(() => {
+        if (isLoadingAllStudents) return;
         setShift('all');
-    }, [ensino, grade, studentClass]);
+    }, [ensino, grade, studentClass, isLoadingAllStudents]);
 
 
-    const getDailyAbsences = async (date: Date): Promise<AttendanceRecord[]> => {
+    const getAbsencesForDate = async (targetDate: Date): Promise<AttendanceRecord[]> => {
         if (!firestore) return [];
-        const dateString = format(date, 'yyyy-MM-dd');
+        const dateString = format(targetDate, 'yyyy-MM-dd');
         
         const attendanceRef = collection(firestore, 'attendance');
         let q = query(attendanceRef, where('date', '==', dateString), where('status', '==', 'absent'));
@@ -93,15 +97,27 @@ export function DailyReport() {
         
         startTransition(async () => {
             setSearchedDate(date);
-            const result = await getDailyAbsences(date);
-            setAbsences(result);
+            const [currentAbsences, prevDayAbsences] = await Promise.all([
+                getAbsencesForDate(date),
+                getAbsencesForDate(subDays(date, 1))
+            ]);
+            setAbsences(currentAbsences);
+            setPreviousDayAbsences(prevDayAbsences);
         });
     };
 
     const handleExport = () => {
         if (!searchedDate) return;
+
+        const previousDayAbsencesSet = new Set(previousDayAbsences.map(a => a.studentId));
+
+        const dataToExport: DailyAbsenceWithConsecutive[] = filteredAbsences.map(absence => ({
+            ...absence,
+            isConsecutive: previousDayAbsencesSet.has(absence.studentId)
+        }));
+
         const filters = { ensino, grade, studentClass, shift };
-        exportDailyReportToPDF(searchedDate, filters, filteredAbsences);
+        exportDailyReportToPDF(searchedDate, filters, dataToExport);
     }
 
     // Auto-search on initial load with today's date
@@ -110,7 +126,7 @@ export function DailyReport() {
             handleSearch();
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [firestore, searchedDate]);
+    }, [firestore]);
 
     return (
         <Card>
@@ -140,7 +156,7 @@ export function DailyReport() {
                             <Select value={ensino} onValueChange={setEnsino} disabled={isLoadingAllStudents || ensinos.length === 0}>
                                 <SelectTrigger><SelectValue placeholder="Ensino" /></SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="all">Todos os Ensinos</SelectItem>
+                                    <SelectItem value="all">Todos</SelectItem>
                                     {ensinos.map(e => <SelectItem key={e} value={e}>{e}</SelectItem>)}
                                 </SelectContent>
                             </Select>
@@ -150,7 +166,7 @@ export function DailyReport() {
                             <Select value={grade} onValueChange={setGrade} disabled={isLoadingAllStudents || grades.length === 0}>
                                 <SelectTrigger><SelectValue placeholder="Série" /></SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="all">Todas as Séries</SelectItem>
+                                    <SelectItem value="all">Todas</SelectItem>
                                     {grades.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}
                                 </SelectContent>
                             </Select>
@@ -160,7 +176,7 @@ export function DailyReport() {
                             <Select value={studentClass} onValueChange={setStudentClass} disabled={isLoadingAllStudents || classes.length === 0}>
                                 <SelectTrigger><SelectValue placeholder="Turma" /></SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="all">Todas as Turmas</SelectItem>
+                                    <SelectItem value="all">Todas</SelectItem>
                                     {classes.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                                 </SelectContent>
                             </Select>
@@ -170,7 +186,7 @@ export function DailyReport() {
                             <Select value={shift} onValueChange={setShift} disabled={isLoadingAllStudents || shifts.length === 0}>
                                 <SelectTrigger><SelectValue placeholder="Turno" /></SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="all">Todos os Turnos</SelectItem>
+                                    <SelectItem value="all">Todos</SelectItem>
                                     {shifts.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
                                 </SelectContent>
                             </Select>
@@ -229,3 +245,5 @@ export function DailyReport() {
         </Card>
     );
 }
+
+    

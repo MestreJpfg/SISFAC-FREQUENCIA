@@ -13,11 +13,16 @@ type Filters = {
     shift: string;
 }
 
+export type DailyAbsenceWithConsecutive = AttendanceRecord & {
+    isConsecutive: boolean;
+};
+
+
 const formatDate = (date: Date) => format(date, "dd 'de' MMMM 'de' yyyy", { locale: ptBR });
 const formatPeriod = (period: string) => period.charAt(0).toUpperCase() + period.slice(1);
 const formatFilter = (filter: string) => filter === 'all' ? 'Todos' : filter;
 
-export const exportDailyReportToPDF = (date: Date, filters: Filters, absences: AttendanceRecord[]) => {
+export const exportDailyReportToPDF = (date: Date, filters: Filters, absences: DailyAbsenceWithConsecutive[]) => {
     const doc = new jsPDF();
 
     const title = 'Relatório Diário de Ausências';
@@ -34,7 +39,7 @@ export const exportDailyReportToPDF = (date: Date, filters: Filters, absences: A
     const splitFilters = doc.splitTextToSize(filterText, 180);
     doc.text(splitFilters, 14, 44);
 
-    const tableColumn = ["Nome do Aluno", "Ensino", "Série", "Turma", "Turno"];
+    const tableColumn = ["Nome do Aluno", "Ensino", "Série", "Turma", "Turno", "Falta Consecutiva"];
     const tableRows: (string | number)[][] = [];
 
     absences.forEach(record => {
@@ -44,6 +49,7 @@ export const exportDailyReportToPDF = (date: Date, filters: Filters, absences: A
             record.grade,
             record.class,
             record.shift,
+            record.isConsecutive ? "Sim" : "Não",
         ];
         tableRows.push(row);
     });
@@ -102,3 +108,5 @@ export const exportMonthlyReportToPDF = (period: string, filters: Filters, repor
     
     doc.save(fileName);
 };
+
+    
