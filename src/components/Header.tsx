@@ -24,7 +24,7 @@ export function Header() {
                 <div className="flex justify-between items-center h-16">
                     <Link href="/" className="flex items-center gap-3 text-lg font-bold font-headline text-foreground">
                         <ClipboardCheck className="h-7 w-7 text-primary" />
-                        <span className="hidden sm:inline">School Attendance</span>
+                        <span className="hidden sm:inline">SISFAC - FREQUÊNCIA</span>
                     </Link>
                     
                     <nav className="hidden md:flex items-center gap-1">
@@ -50,7 +50,7 @@ export function Header() {
                                     <div className="flex items-center p-4 border-b">
                                          <Link href="/" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-3 text-lg font-bold font-headline text-foreground">
                                             <ClipboardCheck className="h-7 w-7 text-primary" />
-                                            <span>School Attendance</span>
+                                            <span>SISFAC - FREQUÊNCIA</span>
                                         </Link>
                                     </div>
                                     <nav className="flex-grow p-4">
