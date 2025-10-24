@@ -69,19 +69,22 @@ export function MonthlyReport() {
     }, [allStudents, ensino, grade, studentClass]);
 
     useEffect(() => {
+        if(isLoadingAllStudents) return;
         setGrade('all');
         setStudentClass('all');
         setShift('all');
-    }, [ensino]);
+    }, [ensino, isLoadingAllStudents]);
 
     useEffect(() => {
+        if(isLoadingAllStudents) return;
         setStudentClass('all');
         setShift('all');
-    }, [ensino, grade]);
+    }, [ensino, grade, isLoadingAllStudents]);
 
     useEffect(() => {
+        if(isLoadingAllStudents) return;
         setShift('all');
-    }, [ensino, grade, studentClass]);
+    }, [ensino, grade, studentClass, isLoadingAllStudents]);
 
 
     const filteredStudents = useMemo(() => {
@@ -99,26 +102,35 @@ export function MonthlyReport() {
         
         const startDate = startOfMonth(new Date(year, month));
         const endDate = endOfMonth(new Date(year, month));
-        const studentIdsSet = new Set(studentsToReport.map(s => s.id));
-
-        const q = query(
-            collection(firestore, 'attendance'),
-            where('date', '>=', format(startDate, 'yyyy-MM-dd')),
-            where('date', '<=', format(endDate, 'yyyy-MM-dd')),
-            where('status', '==', 'absent')
-        );
+        const studentIds = studentsToReport.map(s => s.id);
 
         const absenceCounts = new Map<string, number>();
-        
-        try {
-            const querySnapshot = await getDocs(q);
+        const studentIdChunks: string[][] = [];
+        // Firestore 'in' query supports a maximum of 30 elements
+        for (let i = 0; i < studentIds.length; i += 30) {
+            studentIdChunks.push(studentIds.slice(i, i + 30));
+        }
 
-            querySnapshot.forEach(doc => {
-                const record = doc.data() as AttendanceRecord;
-                if (studentIdsSet.has(record.studentId)) {
-                    absenceCounts.set(record.studentId, (absenceCounts.get(record.studentId) || 0) + 1);
-                }
+        try {
+            const queryPromises = studentIdChunks.map(chunk => {
+                const q = query(
+                    collection(firestore, 'attendance'),
+                    where('studentId', 'in', chunk),
+                    where('date', '>=', format(startDate, 'yyyy-MM-dd')),
+                    where('date', '<=', format(endDate, 'yyyy-MM-dd')),
+                    where('status', '==', 'absent')
+                );
+                return getDocs(q);
             });
+            
+            const querySnapshots = await Promise.all(queryPromises);
+
+            for (const querySnapshot of querySnapshots) {
+                querySnapshot.forEach(doc => {
+                    const record = doc.data() as AttendanceRecord;
+                    absenceCounts.set(record.studentId, (absenceCounts.get(record.studentId) || 0) + 1);
+                });
+            }
         } catch (error) {
             console.error("Error fetching monthly absences:", error);
             return []; 
@@ -311,3 +323,5 @@ export function MonthlyReport() {
         </Card>
     );
 }
+
+    
