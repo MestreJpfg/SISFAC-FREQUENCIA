@@ -1,10 +1,10 @@
-
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import type { AttendanceRecord } from './types';
 import type { MonthlyAbsenceData } from '@/app/reports/MonthlyReport';
+import { logoBase64 } from './logo-image';
 
 type Filters = {
     ensino: string;
@@ -22,8 +22,24 @@ const formatDate = (date: Date) => format(date, "dd 'de' MMMM 'de' yyyy", { loca
 const formatPeriod = (period: string) => period.charAt(0).toUpperCase() + period.slice(1);
 const formatFilter = (filter: string) => filter === 'all' ? 'Todos' : filter;
 
+const addBackgroundImage = (doc: jsPDF) => {
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const logoWidth = 100; // Adjust as needed
+    const logoHeight = 100; // Adjust as needed
+    const x = (pageWidth - logoWidth) / 2;
+    const y = (pageHeight - logoHeight) / 2;
+
+    doc.saveGraphicsState();
+    doc.setGState(new (doc as any).GState({ opacity: 0.2 })); // 80% transparent -> 0.2 opacity
+    doc.addImage(logoBase64, 'PNG', x, y, logoWidth, logoHeight);
+    doc.restoreGraphicsState();
+}
+
 export const exportDailyReportToPDF = (date: Date, filters: Filters, absences: DailyAbsenceWithConsecutive[]) => {
     const doc = new jsPDF();
+    
+    addBackgroundImage(doc);
 
     const title = 'Relatório Diário de Ausências';
     const reportDate = formatDate(date);
@@ -66,6 +82,8 @@ export const exportDailyReportToPDF = (date: Date, filters: Filters, absences: D
 
 export const exportMonthlyReportToPDF = (period: string, filters: Filters, reportData: MonthlyAbsenceData[]) => {
     const doc = new jsPDF();
+    addBackgroundImage(doc);
+
     const formattedPeriod = formatPeriod(period);
 
     const title = 'Relatório Mensal de Ausências';
@@ -108,5 +126,3 @@ export const exportMonthlyReportToPDF = (period: string, filters: Filters, repor
     
     doc.save(fileName);
 };
-
-    
