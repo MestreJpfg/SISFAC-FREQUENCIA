@@ -133,14 +133,8 @@ export function MonthlyReport() {
 
             const allMonthlyAbsences = await getMonthlyAbsences(month, year);
             
-            const filteredAbsences = allMonthlyAbsences
-                .filter(record => ensino === 'all' || record.ensino === ensino)
-                .filter(record => grade === 'all' || record.grade === grade)
-                .filter(record => studentClass === 'all' || record.class === studentClass)
-                .filter(record => shift === 'all' || record.shift === shift);
-
             const absenceCounts = new Map<string, number>();
-            filteredAbsences.forEach(record => {
+            allMonthlyAbsences.forEach(record => {
                 absenceCounts.set(record.studentId, (absenceCounts.get(record.studentId) || 0) + 1);
             });
 
@@ -166,8 +160,13 @@ export function MonthlyReport() {
         });
     };
 
-    const sortedReport = useMemo(() => {
-        let sortableItems = [...report];
+    const filteredAndSortedReport = useMemo(() => {
+        let sortableItems = [...report]
+            .filter(record => ensino === 'all' || record.studentEnsino === ensino)
+            .filter(record => grade === 'all' || record.studentGrade === grade)
+            .filter(record => studentClass === 'all' || record.studentClass === studentClass)
+            .filter(record => shift === 'all' || record.studentShift === shift);
+            
         if (sortConfig !== null) {
             sortableItems.sort((a, b) => {
                 const aValue = a[sortConfig.key];
@@ -187,7 +186,7 @@ export function MonthlyReport() {
             });
         }
         return sortableItems;
-    }, [report, sortConfig]);
+    }, [report, sortConfig, ensino, grade, studentClass, shift]);
 
     const requestSort = (key: SortableKeys) => {
         let direction: 'ascending' | 'descending' = 'ascending';
@@ -210,7 +209,7 @@ export function MonthlyReport() {
     const handleExport = () => {
         if (!searchedPeriod) return;
         const filters = { ensino, grade, studentClass, shift };
-        const dataToExport = sortedReport.filter(r => r.absenceCount > 0);
+        const dataToExport = filteredAndSortedReport.filter(r => r.absenceCount > 0);
         exportMonthlyReportToPDF(searchedPeriod, filters, dataToExport);
     }
     
@@ -313,7 +312,7 @@ export function MonthlyReport() {
                             {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
                             Gerar Relatório
                         </Button>
-                        <Button onClick={handleExport} disabled={isPending || !searchedPeriod || sortedReport.filter(r => r.absenceCount > 0).length === 0} className="w-full sm:w-auto" variant="secondary">
+                        <Button onClick={handleExport} disabled={isPending || !searchedPeriod || filteredAndSortedReport.filter(r => r.absenceCount > 0).length === 0} className="w-full sm:w-auto" variant="secondary">
                             <FileDown className="mr-2 h-4 w-4" />
                             Exportar para PDF
                         </Button>
@@ -327,8 +326,8 @@ export function MonthlyReport() {
                     </div>
                 ) : searchedPeriod && (
                     <div className="pt-4">
-                         <h3 className="font-semibold mb-2">Resultados para {searchedPeriod}: <span className="font-bold">{sortedReport.filter(r => r.absenceCount > 0).length}</span> aluno(s) com faltas</h3>
-                          {sortedReport.length === 0 || sortedReport.every(r => r.absenceCount === 0) ? (
+                         <h3 className="font-semibold mb-2">Resultados para {searchedPeriod}: <span className="font-bold">{filteredAndSortedReport.filter(r => r.absenceCount > 0).length}</span> aluno(s) com faltas</h3>
+                          {filteredAndSortedReport.length === 0 || filteredAndSortedReport.every(r => r.absenceCount === 0) ? (
                             <p className="text-muted-foreground text-center py-4">Nenhuma ausência registrada para o período e filtros selecionados.</p>
                         ) : (
                             <ScrollArea className="h-96 rounded-md border">
@@ -374,7 +373,7 @@ export function MonthlyReport() {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {sortedReport.filter(r => r.absenceCount > 0).map((data) => (
+                                    {filteredAndSortedReport.filter(r => r.absenceCount > 0).map((data) => (
                                         <TableRow key={data.studentId}>
                                             <TableCell className="font-medium">{data.studentName}</TableCell>
                                             <TableCell>{data.studentEnsino}</TableCell>
