@@ -54,23 +54,34 @@ export function MonthlyReport() {
     const { ensinos, grades, classes, shifts } = useMemo(() => {
         if (!allStudents) return { ensinos: [], grades: [], classes: [], shifts: [] };
 
-        const filteredByEnsino = ensino === 'all' 
-            ? allStudents 
-            : allStudents.filter(s => s.ensino === ensino);
-
         const uniqueEnsinos = [...new Set(allStudents.map(s => s.ensino))].sort();
-        const uniqueGrades = [...new Set(filteredByEnsino.map(s => s.grade))].sort((a,b) => a.localeCompare(b, undefined, { numeric: true }));
-        const uniqueClasses = [...new Set(filteredByEnsino.map(s => s.class))].sort();
-        const uniqueShifts = [...new Set(filteredByEnsino.map(s => s.shift))].sort();
+
+        const studentsAfterEnsino = ensino === 'all' ? allStudents : allStudents.filter(s => s.ensino === ensino);
+        const uniqueGrades = [...new Set(studentsAfterEnsino.map(s => s.grade))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+
+        const studentsAfterGrade = grade === 'all' ? studentsAfterEnsino : studentsAfterEnsino.filter(s => s.grade === grade);
+        const uniqueClasses = [...new Set(studentsAfterGrade.map(s => s.class))].sort();
+
+        const studentsAfterClass = studentClass === 'all' ? studentsAfterGrade : studentsAfterGrade.filter(s => s.class === studentClass);
+        const uniqueShifts = [...new Set(studentsAfterClass.map(s => s.shift))].sort();
 
         return { ensinos: uniqueEnsinos, grades: uniqueGrades, classes: uniqueClasses, shifts: uniqueShifts };
-    }, [allStudents, ensino]);
+    }, [allStudents, ensino, grade, studentClass]);
 
     useEffect(() => {
         setGrade('all');
         setStudentClass('all');
         setShift('all');
     }, [ensino]);
+
+    useEffect(() => {
+        setStudentClass('all');
+        setShift('all');
+    }, [ensino, grade]);
+
+    useEffect(() => {
+        setShift('all');
+    }, [ensino, grade, studentClass]);
 
 
     const filteredStudents = useMemo(() => {
