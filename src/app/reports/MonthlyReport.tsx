@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useTransition, useMemo } from "react";
@@ -148,70 +149,73 @@ export function MonthlyReport() {
                 <CardDescription>Selecione um período e filtre para ver o total de faltas por aluno.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 items-end">
-                    <div className="col-span-1">
-                        <Label>Mês</Label>
-                        <Select value={String(month)} onValueChange={(val) => setMonth(Number(val))}>
-                            <SelectTrigger className="capitalize"><SelectValue placeholder="Mês" /></SelectTrigger>
-                            <SelectContent>
-                                {months.map(m => <SelectItem key={m.value} value={String(m.value)} className="capitalize">{m.label}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
+                 <div className="space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 items-end">
+                        <div className="col-span-1">
+                            <Label>Mês</Label>
+                            <Select value={String(month)} onValueChange={(val) => setMonth(Number(val))}>
+                                <SelectTrigger className="capitalize"><SelectValue placeholder="Mês" /></SelectTrigger>
+                                <SelectContent>
+                                    {months.map(m => <SelectItem key={m.value} value={String(m.value)} className="capitalize">{m.label}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                         <div className="col-span-1">
+                            <Label>Ano</Label>
+                            <Select value={String(year)} onValueChange={(val) => setYear(Number(val))}>
+                                <SelectTrigger><SelectValue placeholder="Ano" /></SelectTrigger>
+                                <SelectContent>
+                                    {years.map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                         <div>
+                            <Label>Ensino</Label>
+                            <Select value={ensino} onValueChange={setEnsino}>
+                                <SelectTrigger><SelectValue placeholder="Ensino" /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">Todos os Ensinos</SelectItem>
+                                    {ensinos.map(e => <SelectItem key={e} value={e}>{e}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div>
+                            <Label>Série</Label>
+                            <Select value={grade} onValueChange={setGrade}>
+                                <SelectTrigger><SelectValue placeholder="Série" /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">Todas as Séries</SelectItem>
+                                    {grades.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                         <div>
+                            <Label>Turma</Label>
+                            <Select value={studentClass} onValueChange={setStudentClass}>
+                                <SelectTrigger><SelectValue placeholder="Turma" /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">Todas as Turmas</SelectItem>
+                                    {classes.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div>
+                            <Label>Turno</Label>
+                            <Select value={shift} onValueChange={setShift}>
+                                <SelectTrigger><SelectValue placeholder="Turno" /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">Todos os Turnos</SelectItem>
+                                    {shifts.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </div>
                     </div>
-                     <div className="col-span-1">
-                        <Label>Ano</Label>
-                        <Select value={String(year)} onValueChange={(val) => setYear(Number(val))}>
-                            <SelectTrigger><SelectValue placeholder="Ano" /></SelectTrigger>
-                            <SelectContent>
-                                {years.map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                     <div>
-                        <Label>Ensino</Label>
-                        <Select value={ensino} onValueChange={setEnsino}>
-                            <SelectTrigger><SelectValue placeholder="Ensino" /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">Todos os Ensinos</SelectItem>
-                                {ensinos.map(e => <SelectItem key={e} value={e}>{e}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div>
-                        <Label>Série</Label>
-                        <Select value={grade} onValueChange={setGrade}>
-                            <SelectTrigger><SelectValue placeholder="Série" /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">Todas as Séries</SelectItem>
-                                {grades.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                     <div>
-                        <Label>Turma</Label>
-                        <Select value={studentClass} onValueChange={setStudentClass}>
-                            <SelectTrigger><SelectValue placeholder="Turma" /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">Todas as Turmas</SelectItem>
-                                {classes.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div>
-                        <Label>Turno</Label>
-                        <Select value={shift} onValueChange={setShift}>
-                            <SelectTrigger><SelectValue placeholder="Turno" /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">Todos os Turnos</SelectItem>
-                                {shifts.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
-                    </div>
+                     <Button onClick={handleSearch} disabled={isPending || isLoadingAllStudents} className="w-full sm:w-auto">
+                        {isPending || isLoadingAllStudents ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
+                        Gerar Relatório
+                    </Button>
                 </div>
-                 <Button onClick={handleSearch} disabled={isPending || isLoadingAllStudents} className="w-full sm:w-auto">
-                    {isPending || isLoadingAllStudents ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
-                    Gerar Relatório
-                </Button>
+
 
                  {isPending ? (
                     <div className="flex justify-center items-center h-60">

@@ -87,66 +87,68 @@ export function DailyReport() {
                 <CardDescription>Selecione uma data e filtre para ver os alunos ausentes.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 items-end">
-                    <div className="col-span-2 sm:col-span-1 lg:col-span-2">
-                         <Label>Data</Label>
-                        <Popover>
-                            <PopoverTrigger asChild>
-                                <Button variant={"outline"} className="w-full justify-start text-left font-normal">
-                                    <CalendarIcon className="mr-2 h-4 w-4" />
-                                    {date ? format(date, "PPP", { locale: ptBR }) : <span>Escolha uma data</span>}
-                                </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0">
-                                <Calendar mode="single" selected={date} onSelect={setDate} initialFocus />
-                            </PopoverContent>
-                        </Popover>
+                <div className="space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                         <div className="col-span-1 sm:col-span-2 lg:col-span-1">
+                             <Label>Data</Label>
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button variant={"outline"} className="w-full justify-start text-left font-normal">
+                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                        {date ? format(date, "PPP", { locale: ptBR }) : <span>Escolha uma data</span>}
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0">
+                                    <Calendar mode="single" selected={date} onSelect={setDate} initialFocus />
+                                </PopoverContent>
+                            </Popover>
+                        </div>
+                         <div>
+                            <Label>Ensino</Label>
+                            <Select value={ensino} onValueChange={setEnsino}>
+                                <SelectTrigger><SelectValue placeholder="Ensino" /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">Todos os Ensinos</SelectItem>
+                                    {ensinos.map(e => <SelectItem key={e} value={e}>{e}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div>
+                            <Label>Série</Label>
+                            <Select value={grade} onValueChange={setGrade}>
+                                <SelectTrigger><SelectValue placeholder="Série" /></Select|''>
+                                <SelectContent>
+                                    <SelectItem value="all">Todas as Séries</SelectItem>
+                                    {grades.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                         <div>
+                            <Label>Turma</Label>
+                            <Select value={studentClass} onValueChange={setStudentClass}>
+                                <SelectTrigger><SelectValue placeholder="Turma" /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">Todas as Turmas</SelectItem>
+                                    {classes.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div>
+                            <Label>Turno</Label>
+                            <Select value={shift} onValueChange={setShift}>
+                                <SelectTrigger><SelectValue placeholder="Turno" /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">Todos os Turnos</SelectItem>
+                                    {shifts.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </div>
                     </div>
-                     <div>
-                        <Label>Ensino</Label>
-                        <Select value={ensino} onValueChange={setEnsino}>
-                            <SelectTrigger><SelectValue placeholder="Ensino" /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">Todos os Ensinos</SelectItem>
-                                {ensinos.map(e => <SelectItem key={e} value={e}>{e}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div>
-                        <Label>Série</Label>
-                        <Select value={grade} onValueChange={setGrade}>
-                            <SelectTrigger><SelectValue placeholder="Série" /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">Todas as Séries</SelectItem>
-                                {grades.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                     <div>
-                        <Label>Turma</Label>
-                        <Select value={studentClass} onValueChange={setStudentClass}>
-                            <SelectTrigger><SelectValue placeholder="Turma" /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">Todas as Turmas</SelectItem>
-                                {classes.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div>
-                        <Label>Turno</Label>
-                        <Select value={shift} onValueChange={setShift}>
-                            <SelectTrigger><SelectValue placeholder="Turno" /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">Todos os Turnos</SelectItem>
-                                {shifts.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
-                    </div>
+                     <Button onClick={handleSearch} disabled={isPending || !date} className="w-full sm:w-auto">
+                            {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
+                            Buscar
+                    </Button>
                 </div>
-                 <Button onClick={handleSearch} disabled={isPending || !date} className="w-full sm:w-auto">
-                        {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
-                        Buscar
-                </Button>
 
                 {isPending ? (
                     <div className="flex justify-center items-center h-60">
@@ -170,8 +172,8 @@ export function DailyReport() {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {filteredAbsences.map((record) => (
-                                        <TableRow key={record.studentId}>
+                                    {filteredAbsences.map((record, index) => (
+                                        <TableRow key={`${record.studentId}-${index}`}>
                                             <TableCell className="font-medium">{record.studentName}</TableCell>
                                             <TableCell>{record.ensino}</TableCell>
                                             <TableCell>{record.grade}</TableCell>
