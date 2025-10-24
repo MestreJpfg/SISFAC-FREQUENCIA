@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useTransition, useMemo } from "react";
+import { useState, useTransition, useMemo, useEffect } from "react";
 import { format, getMonth, getYear, startOfMonth, endOfMonth } from "date-fns";
 import { ptBR } from 'date-fns/locale';
 import { Button } from "@/components/ui/button";
@@ -131,7 +131,7 @@ export function MonthlyReport() {
             handleSearch();
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [filteredStudents, month, year]); // Re-run when these dependencies change
+    }, [filteredStudents, month, year, isLoadingAllStudents, allStudents]);
     
     if (isLoadingAllStudents) {
          return (
@@ -188,7 +188,7 @@ export function MonthlyReport() {
                         </div>
                          <div className="col-span-2 sm:col-span-1">
                             <Label>Ensino</Label>
-                            <Select value={ensino} onValueChange={setEnsino}>
+                            <Select value={ensino} onValueChange={setEnsino} disabled={isLoadingAllStudents || !ensinos.length}>
                                 <SelectTrigger><SelectValue placeholder="Ensino" /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">Todos os Ensinos</SelectItem>
@@ -198,7 +198,7 @@ export function MonthlyReport() {
                         </div>
                         <div>
                             <Label>Série</Label>
-                            <Select value={grade} onValueChange={setGrade}>
+                            <Select value={grade} onValueChange={setGrade} disabled={isLoadingAllStudents || !grades.length}>
                                 <SelectTrigger><SelectValue placeholder="Série" /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">Todas as Séries</SelectItem>
@@ -208,7 +208,7 @@ export function MonthlyReport() {
                         </div>
                          <div>
                             <Label>Turma</Label>
-                            <Select value={studentClass} onValueChange={setStudentClass}>
+                            <Select value={studentClass} onValueChange={setStudentClass} disabled={isLoadingAllStudents || !classes.length}>
                                 <SelectTrigger><SelectValue placeholder="Turma" /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">Todas as Turmas</SelectItem>
@@ -218,7 +218,7 @@ export function MonthlyReport() {
                         </div>
                         <div>
                             <Label>Turno</Label>
-                            <Select value={shift} onValueChange={setShift}>
+                            <Select value={shift} onValueChange={setShift} disabled={isLoadingAllStudents || !shifts.length}>
                                 <SelectTrigger><SelectValue placeholder="Turno" /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">Todos os Turnos</SelectItem>
@@ -278,5 +278,5 @@ export function MonthlyReport() {
             </CardContent>
         </Card>
     );
-}
 
+    
