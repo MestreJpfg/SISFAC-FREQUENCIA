@@ -119,39 +119,32 @@ export function MonthlyReport() {
     }
 
     const handleSearch = () => {
-        if (isLoadingAllStudents || !allStudents) return;
-
         startTransition(async () => {
             const today = new Date();
             setSearchedDate(today);
 
             const allMonthlyAbsences = await getMonthlyAbsences();
             
-            const studentMap = new Map(allStudents.map(s => [s.id, s]));
+            const absenceCounts = new Map<string, MonthlyAbsenceData>();
 
-            const absenceCounts = new Map<string, number>();
             allMonthlyAbsences.forEach(record => {
-                if (studentMap.has(record.studentId)) {
-                    absenceCounts.set(record.studentId, (absenceCounts.get(record.studentId) || 0) + 1);
-                }
-            });
-
-            const reportData: MonthlyAbsenceData[] = [];
-            absenceCounts.forEach((count, studentId) => {
-                const student = studentMap.get(studentId);
-                if (student) {
-                    reportData.push({
-                        studentId: student.id,
-                        studentName: student.name,
-                        studentClass: student.class,
-                        studentGrade: student.grade,
-                        studentShift: student.shift,
-                        studentEnsino: student.ensino,
-                        absenceCount: count,
+                if (absenceCounts.has(record.studentId)) {
+                    const existing = absenceCounts.get(record.studentId)!;
+                    existing.absenceCount += 1;
+                } else {
+                    absenceCounts.set(record.studentId, {
+                        studentId: record.studentId,
+                        studentName: record.studentName,
+                        studentClass: record.class,
+                        studentGrade: record.grade,
+                        studentShift: record.shift,
+                        studentEnsino: record.ensino,
+                        absenceCount: 1,
                     });
                 }
             });
-            
+
+            const reportData = Array.from(absenceCounts.values());
             setReport(reportData);
         });
     };
