@@ -77,7 +77,7 @@ export function DailyReport() {
         
         const querySnapshot = await getDocs(q);
         
-        return querySnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as AttendanceRecord));
+        return querySnapshot.docs.map(doc => ({ ...(doc.data() as Omit<AttendanceRecord, 'id'>), id: doc.id }));
     }
     
     const filteredAndSortedAbsences = useMemo(() => {
@@ -250,61 +250,61 @@ export function DailyReport() {
                         {filteredAndSortedAbsences.length === 0 ? (
                             <p className="text-muted-foreground text-center py-4">Nenhum aluno ausente para os filtros selecionados.</p>
                         ) : (
-                            <ScrollArea className="h-96 rounded-md border">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>
-                                            <Button variant="ghost" onClick={() => requestSort('studentName')} className="px-0">
-                                                Nome do Aluno
-                                                {getSortIcon('studentName')}
-                                            </Button>
-                                        </TableHead>
-                                        <TableHead>
-                                            <Button variant="ghost" onClick={() => requestSort('ensino')} className="px-0">
-                                                Ensino
-                                                {getSortIcon('ensino')}
-                                            </Button>
-                                        </TableHead>
-                                        <TableHead>
-                                            <Button variant="ghost" onClick={() => requestSort('grade')} className="px-0">
-                                                Série
-                                                {getSortIcon('grade')}
-                                            </Button>
-                                        </TableHead>
-                                        <TableHead>
-                                             <Button variant="ghost" onClick={() => requestSort('class')} className="px-0">
-                                                Turma
-                                                {getSortIcon('class')}
-                                            </Button>
-                                        </TableHead>
-                                        <TableHead>
-                                             <Button variant="ghost" onClick={() => requestSort('shift')} className="px-0">
-                                                Turno
-                                                {getSortIcon('shift')}
-                                            </Button>
-                                        </TableHead>
-                                        <TableHead>
-                                            <Button variant="ghost" onClick={() => requestSort('isConsecutive')} className="px-0">
-                                                Falta Consecutiva
-                                                {getSortIcon('isConsecutive')}
-                                            </Button>
-                                        </TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {filteredAndSortedAbsences.map((record) => (
-                                        <TableRow key={record.id}>
-                                            <TableCell className="font-medium">{record.studentName}</TableCell>
-                                            <TableCell>{record.ensino}</TableCell>
-                                            <TableCell>{record.grade}</TableCell>
-                                            <TableCell>{record.class}</TableCell>
-                                            <TableCell>{record.shift}</TableCell>
-                                            <TableCell>{record.isConsecutive ? 'Sim' : 'Não'}</TableCell>
+                            <ScrollArea className="w-full whitespace-nowrap rounded-md border">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>
+                                                <Button variant="ghost" onClick={() => requestSort('studentName')} className="px-0">
+                                                    Nome do Aluno
+                                                    {getSortIcon('studentName')}
+                                                </Button>
+                                            </TableHead>
+                                            <TableHead>
+                                                <Button variant="ghost" onClick={() => requestSort('ensino')} className="px-0">
+                                                    Ensino
+                                                    {getSortIcon('ensino')}
+                                                </Button>
+                                            </TableHead>
+                                            <TableHead>
+                                                <Button variant="ghost" onClick={() => requestSort('grade')} className="px-0">
+                                                    Série
+                                                    {getSortIcon('grade')}
+                                                </Button>
+                                            </TableHead>
+                                            <TableHead>
+                                                <Button variant="ghost" onClick={() => requestSort('class')} className="px-0">
+                                                    Turma
+                                                    {getSortIcon('class')}
+                                                </Button>
+                                            </TableHead>
+                                            <TableHead>
+                                                <Button variant="ghost" onClick={() => requestSort('shift')} className="px-0">
+                                                    Turno
+                                                    {getSortIcon('shift')}
+                                                </Button>
+                                            </TableHead>
+                                            <TableHead>
+                                                <Button variant="ghost" onClick={() => requestSort('isConsecutive')} className="px-0">
+                                                    Falta Consecutiva
+                                                    {getSortIcon('isConsecutive')}
+                                                </Button>
+                                            </TableHead>
                                         </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {filteredAndSortedAbsences.map((record) => (
+                                            <TableRow key={record.id}>
+                                                <TableCell className="font-medium">{record.studentName}</TableCell>
+                                                <TableCell>{record.ensino}</TableCell>
+                                                <TableCell>{record.grade}</TableCell>
+                                                <TableCell>{record.class}</TableCell>
+                                                <TableCell>{record.shift}</TableCell>
+                                                <TableCell>{record.isConsecutive ? 'Sim' : 'Não'}</TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
                             </ScrollArea>
                         )}
                     </div>
@@ -313,5 +313,3 @@ export function DailyReport() {
         </Card>
     );
 }
-
-    

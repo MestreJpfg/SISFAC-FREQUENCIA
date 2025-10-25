@@ -112,7 +112,7 @@ export function MonthlyReport() {
 
         try {
             const querySnapshot = await getDocs(q);
-            return querySnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as AttendanceRecordWithId));
+            return querySnapshot.docs.map(doc => ({ ...(doc.data() as Omit<AttendanceRecordWithId, 'id'>), id: doc.id }));
         } catch (error) {
             console.error("Error fetching monthly absences:", error);
             return [];
@@ -132,7 +132,6 @@ export function MonthlyReport() {
 
             const absenceCounts = new Map<string, number>();
             allMonthlyAbsences.forEach(record => {
-                // Ensure the student exists in our main list before counting
                 if (studentMap.has(record.studentId)) {
                     absenceCounts.set(record.studentId, (absenceCounts.get(record.studentId) || 0) + 1);
                 }
@@ -141,7 +140,6 @@ export function MonthlyReport() {
             const reportData: MonthlyAbsenceData[] = [];
             absenceCounts.forEach((count, studentId) => {
                 const student = studentMap.get(studentId);
-                // We are sure the student exists because of the check above
                 if (student) {
                     reportData.push({
                         studentId: student.id,
@@ -311,61 +309,61 @@ export function MonthlyReport() {
                           {filteredAndSortedReport.length === 0 || filteredAndSortedReport.every(r => r.absenceCount === 0) ? (
                             <p className="text-muted-foreground text-center py-4">Nenhuma ausência registrada para o período e filtros selecionados.</p>
                         ) : (
-                            <ScrollArea className="h-96 rounded-md border">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>
-                                             <Button variant="ghost" onClick={() => requestSort('studentName')} className="px-0">
-                                                Nome do Aluno
-                                                {getSortIcon('studentName')}
-                                            </Button>
-                                        </TableHead>
-                                        <TableHead>
-                                            <Button variant="ghost" onClick={() => requestSort('studentEnsino')} className="px-0">
-                                                Ensino
-                                                {getSortIcon('studentEnsino')}
-                                            </Button>
-                                        </TableHead>
-                                        <TableHead>
-                                            <Button variant="ghost" onClick={() => requestSort('studentGrade')} className="px-0">
-                                                Série
-                                                {getSortIcon('studentGrade')}
-                                            </Button>
-                                        </TableHead>
-                                        <TableHead>
-                                             <Button variant="ghost" onClick={() => requestSort('studentClass')} className="px-0">
-                                                Turma
-                                                {getSortIcon('studentClass')}
-                                            </Button>
-                                        </TableHead>
-                                        <TableHead>
-                                            <Button variant="ghost" onClick={() => requestSort('studentShift')} className="px-0">
-                                                Turno
-                                                {getSortIcon('studentShift')}
-                                            </Button>
-                                        </TableHead>
-                                        <TableHead className="text-right">
-                                            <Button variant="ghost" onClick={() => requestSort('absenceCount')} className="px-0">
-                                                Total de Faltas
-                                                {getSortIcon('absenceCount')}
-                                            </Button>
-                                        </TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {filteredAndSortedReport.filter(r => r.absenceCount > 0).map((data) => (
-                                        <TableRow key={data.studentId}>
-                                            <TableCell className="font-medium">{data.studentName}</TableCell>
-                                            <TableCell>{data.studentEnsino}</TableCell>
-                                            <TableCell>{data.studentGrade}</TableCell>
-                                            <TableCell>{data.studentClass}</TableCell>
-                                            <TableCell>{data.studentShift}</TableCell>
-                                            <TableCell className="text-right font-bold">{data.absenceCount}</TableCell>
+                            <ScrollArea className="w-full whitespace-nowrap rounded-md border">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>
+                                                <Button variant="ghost" onClick={() => requestSort('studentName')} className="px-0">
+                                                    Nome do Aluno
+                                                    {getSortIcon('studentName')}
+                                                </Button>
+                                            </TableHead>
+                                            <TableHead>
+                                                <Button variant="ghost" onClick={() => requestSort('studentEnsino')} className="px-0">
+                                                    Ensino
+                                                    {getSortIcon('studentEnsino')}
+                                                </Button>
+                                            </TableHead>
+                                            <TableHead>
+                                                <Button variant="ghost" onClick={() => requestSort('studentGrade')} className="px-0">
+                                                    Série
+                                                    {getSortIcon('studentGrade')}
+                                                </Button>
+                                            </TableHead>
+                                            <TableHead>
+                                                <Button variant="ghost" onClick={() => requestSort('studentClass')} className="px-0">
+                                                    Turma
+                                                    {getSortIcon('studentClass')}
+                                                </Button>
+                                            </TableHead>
+                                            <TableHead>
+                                                <Button variant="ghost" onClick={() => requestSort('studentShift')} className="px-0">
+                                                    Turno
+                                                    {getSortIcon('studentShift')}
+                                                </Button>
+                                            </TableHead>
+                                            <TableHead className="text-right">
+                                                <Button variant="ghost" onClick={() => requestSort('absenceCount')} className="px-0">
+                                                    Total de Faltas
+                                                    {getSortIcon('absenceCount')}
+                                                </Button>
+                                            </TableHead>
                                         </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {filteredAndSortedReport.filter(r => r.absenceCount > 0).map((data) => (
+                                            <TableRow key={data.studentId}>
+                                                <TableCell className="font-medium">{data.studentName}</TableCell>
+                                                <TableCell>{data.studentEnsino}</TableCell>
+                                                <TableCell>{data.studentGrade}</TableCell>
+                                                <TableCell>{data.studentClass}</TableCell>
+                                                <TableCell>{data.studentShift}</TableCell>
+                                                <TableCell className="text-right font-bold">{data.absenceCount}</TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
                             </ScrollArea>
                         )}
                     </div>
@@ -374,5 +372,3 @@ export function MonthlyReport() {
         </Card>
     );
 }
-
-    
