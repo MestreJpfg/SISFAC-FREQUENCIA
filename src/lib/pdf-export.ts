@@ -1,9 +1,8 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { format, startOfMonth } from 'date-fns';
+import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import type { AttendanceRecord } from './types';
-import type { MonthlyAbsenceData } from '@/app/reports/MonthlyReport';
 import { logoBase64 } from './logo-image';
 
 type Filters = {
@@ -88,58 +87,4 @@ export const exportDailyReportToPDF = (date: Date, filters: Filters, absences: D
 
     doc.save(fileName);
 };
-
-
-export const exportMonthlyReportToPDF = (date: Date, filters: Filters, reportData: MonthlyAbsenceData[]) => {
-    const doc = new jsPDF();
-    addBackgroundImage(doc);
-
-    const periodStart = format(startOfMonth(date), "dd/MM/yyyy");
-    const periodEnd = format(date, "dd/MM/yyyy");
-    const periodString = `De ${periodStart} até ${periodEnd}`;
-    const fileName = `Relatorio_Mensal_Ausencias_${format(date, 'yyyy-MM')}.pdf`;
-
-    doc.setFontSize(18);
-    doc.text('Relatório Mensal de Ausências', 14, 22);
-    doc.setFontSize(11);
-    doc.text(`Período: ${periodString}`, 14, 30);
-    
-    const totalStudentsWithAbsences = reportData.length;
-    doc.text(`Total de Alunos com Faltas: ${totalStudentsWithAbsences}`, 14, 36);
-
-
-    let filterText = `Filtros Aplicados: Ensino: ${formatFilter(filters.ensino)}, Série: ${formatFilter(filters.grade)}, Turma: ${formatFilter(filters.studentClass)}, Turno: ${formatFilter(filters.shift)}`;
-    const splitFilters = doc.splitTextToSize(filterText, 180);
-    doc.text(splitFilters, 14, 44);
-    
-    const tableColumn = ["Nome do Aluno", "Ensino", "Série", "Turma", "Turno", "Total de Faltas"];
-    const tableRows: (string | number)[][] = [];
-
-    reportData.forEach(item => {
-        const row = [
-            item.studentName,
-            item.studentEnsino,
-            item.studentGrade,
-            item.studentClass,
-            item.studentShift,
-            item.absenceCount,
-        ];
-        tableRows.push(row);
-    });
-
-    autoTable(doc, {
-        head: [tableColumn],
-        body: tableRows,
-        startY: 54,
-        headStyles: {
-            fillColor: [229, 115, 115], // Cor destrutiva (vermelho claro)
-            textColor: [255, 255, 255],
-            fontStyle: 'bold',
-        },
-        theme: 'grid',
-    });
-    
-    doc.save(fileName);
-};
-
     
