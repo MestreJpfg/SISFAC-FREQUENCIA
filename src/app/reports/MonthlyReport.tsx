@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition, useMemo, useEffect } from "react";
-import { format, startOfMonth, endOfDay } from "date-fns";
+import { format, startOfMonth, endOfMonth, endOfDay } from "date-fns";
 import { ptBR } from 'date-fns/locale';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -22,7 +22,7 @@ type AttendanceRecordWithId = DocumentData & {
     id: string;
     studentId: string;
     studentName: string;
-    date: string;
+    date: string | Timestamp;
     status: 'present' | 'absent';
     grade: string;
     class: string;
@@ -94,43 +94,48 @@ export function MonthlyReport() {
     }, [studentClass]);
 
 
-    const getMonthlyAbsences = async (): Promise<AttendanceRecordWithId[]> => {
+    const getMonthlyAbsences = async (targetDate: Date): Promise<AttendanceRecordWithId[]> => {
         if (!firestore) return [];
         
-        const today = new Date();
-        const startOfMonthDate = startOfMonth(today);
-        startOfMonthDate.setHours(0, 0, 0, 0); // Set to the beginning of the day
+        const monthStart = startOfMonth(targetDate);
+        const monthEnd = endOfMonth(targetDate);
 
-        const endOfMonthDate = endOfDay(today); // Use endOfDay for the current day
+        const startTimestamp = Timestamp.fromDate(monthStart);
+        const endTimestamp = Timestamp.fromDate(monthEnd);
 
-        const startTimestamp = Timestamp.fromDate(startOfMonthDate);
-        const endTimestamp = Timestamp.fromDate(endOfMonthDate);
+        const baseQuery = query(collection(firestore, 'attendance'), where('status', '==', 'absent'));
 
-        // Firestore `date` field needs to be a Timestamp for this query to work correctly
-        const q = query(
-            collection(firestore, 'attendance'),
-            where('date', '>=', startTimestamp),
-            where('date', '<=', endTimestamp),
-            where('status', '==', 'absent')
-        );
+        const tsQuery = query(baseQuery, where('date', '>=', startTimestamp), where('date', '<=', endTimestamp));
+        const stringQuery = query(baseQuery, where('date', '>=', format(monthStart, 'yyyy-MM-dd')), where('date', '<=', format(monthEnd, 'yyyy-MM-dd')));
 
         try {
-            const querySnapshot = await getDocs(q);
-            return querySnapshot.docs.map(doc => {
-                 const data = doc.data();
-                 // Handle both Timestamp and string date formats for backward compatibility
-                 let dateString: string;
-                 if (data.date instanceof Timestamp) {
-                     dateString = format(data.date.toDate(), 'yyyy-MM-dd');
-                 } else {
-                     dateString = data.date;
-                 }
-                return { 
-                    ...data, 
-                    id: doc.id,
-                    date: dateString
-                } as AttendanceRecordWithId;
-            });
+            const [tsSnapshot, stringSnapshot] = await Promise.all([
+                getDocs(tsQuery),
+                getDocs(stringQuery)
+            ]);
+
+            const combinedDocs: Record<string, AttendanceRecordWithId> = {};
+
+            const processSnapshot = (snapshot: any) => {
+                snapshot.docs.forEach((doc: any) => {
+                    if (!combinedDocs[doc.id]) {
+                        const data = doc.data();
+                        let dateValue: string | Timestamp;
+                        if (data.date instanceof Timestamp) {
+                            dateValue = data.date;
+                        } else {
+                            // Assuming it's a string, keep it as is for now.
+                            dateValue = data.date;
+                        }
+                        combinedDocs[doc.id] = { ...data, id: doc.id, date: dateValue } as AttendanceRecordWithId;
+                    }
+                });
+            }
+
+            processSnapshot(tsSnapshot);
+            processSnapshot(stringSnapshot);
+
+            return Object.values(combinedDocs);
         } catch (error) {
             console.error("Error fetching monthly absences:", error);
             return [];
@@ -142,7 +147,7 @@ export function MonthlyReport() {
             const today = new Date();
             setSearchedDate(today);
 
-            const allMonthlyAbsences = await getMonthlyAbsences();
+            const allMonthlyAbsences = await getMonthlyAbsences(today);
             
             const absenceCounts = new Map<string, MonthlyAbsenceData>();
 
