@@ -10,7 +10,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import type { Student } from "@/lib/types";
 import { Loader2, Search, TriangleAlert, FileDown, ArrowUpDown, ArrowDown, ArrowUp } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useFirebase, useCollection, useMemoFirebase } from "@/firebase";
 import { collection, getDocs, query, where, DocumentData } from 'firebase/firestore';
@@ -309,7 +308,7 @@ export function MonthlyReport() {
                           {filteredAndSortedReport.length === 0 || filteredAndSortedReport.every(r => r.absenceCount === 0) ? (
                             <p className="text-muted-foreground text-center py-4">Nenhuma ausência registrada para o período e filtros selecionados.</p>
                         ) : (
-                            <ScrollArea className="w-full whitespace-nowrap rounded-md border">
+                            <div className="w-full overflow-x-auto rounded-md border">
                                 <Table>
                                     <TableHeader>
                                         <TableRow>
@@ -364,7 +363,7 @@ export function MonthlyReport() {
                                         ))}
                                     </TableBody>
                                 </Table>
-                            </ScrollArea>
+                            </div>
                         )}
                     </div>
                 )}
@@ -372,3 +371,5 @@ export function MonthlyReport() {
         </Card>
     );
 }
+
+    

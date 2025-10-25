@@ -10,7 +10,6 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import type { AttendanceRecord } from "@/lib/types";
 import { useFirebase, useCollection, useMemoFirebase } from "@/firebase";
 import { collection, getDocs, query, where, orderBy, DocumentData } from 'firebase/firestore';
@@ -250,7 +249,7 @@ export function DailyReport() {
                         {filteredAndSortedAbsences.length === 0 ? (
                             <p className="text-muted-foreground text-center py-4">Nenhum aluno ausente para os filtros selecionados.</p>
                         ) : (
-                            <ScrollArea className="w-full whitespace-nowrap rounded-md border">
+                            <div className="w-full overflow-x-auto rounded-md border">
                                 <Table>
                                     <TableHeader>
                                         <TableRow>
@@ -305,7 +304,7 @@ export function DailyReport() {
                                         ))}
                                     </TableBody>
                                 </Table>
-                            </ScrollArea>
+                            </div>
                         )}
                     </div>
                 )}
@@ -313,3 +312,5 @@ export function DailyReport() {
         </Card>
     );
 }
+
+    
