@@ -12,7 +12,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, writeBatch, doc, getDocs, query, where, DocumentData } from 'firebase/firestore';
+import { collection, writeBatch, doc, getDocs, query, where, DocumentData, Timestamp } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { errorEmitter } from '@/firebase/error-emitter';
@@ -22,11 +22,20 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 // Definindo o tipo para os alunos com ID
 type StudentWithId = Student & { id: string };
 
-type AttendanceRecordWithId = {
-    id: string;
+type AttendanceRecordForSave = {
     studentId: string;
-    date: string;
+    studentName: string;
+    date: Timestamp; // Changed to Timestamp
     status: 'present' | 'absent';
+    grade: string;
+    class: string;
+    shift: string;
+    ensino: string;
+};
+
+type AttendanceRecordFromDB = Omit<AttendanceRecordForSave, 'date'> & {
+    id: string;
+    date: Timestamp; // From Firestore
 };
 
 type GroupedStudents = {
@@ -49,13 +58,18 @@ export function AttendanceForm() {
 
     const { data: students, isLoading: isLoadingStudents } = useCollection<Student>(studentsQuery);
 
-    const todayString = format(new Date(), 'yyyy-MM-dd');
+    const todayStart = useMemo(() => {
+        const d = new Date();
+        d.setHours(0, 0, 0, 0);
+        return Timestamp.fromDate(d);
+    }, []);
+
     const attendanceQuery = useMemoFirebase(() => {
         if (!firestore) return null;
-        return query(collection(firestore, 'attendance'), where('date', '==', todayString));
-    }, [firestore, todayString]);
+        return query(collection(firestore, 'attendance'), where('date', '==', todayStart));
+    }, [firestore, todayStart]);
 
-    const { data: todaysAttendance, isLoading: isLoadingAttendance } = useCollection<AttendanceRecordWithId>(attendanceQuery);
+    const { data: todaysAttendance, isLoading: isLoadingAttendance } = useCollection<AttendanceRecordFromDB>(attendanceQuery);
 
     useEffect(() => {
         if (students) {
@@ -69,11 +83,10 @@ export function AttendanceForm() {
         }
     }, [students, todaysAttendance]);
 
-    const { uniqueEnsinos, uniqueTurnos } = useMemo(() => {
-        if (!students) return { uniqueEnsinos: [], uniqueTurnos: [] };
+    const { uniqueEnsinos } = useMemo(() => {
+        if (!students) return { uniqueEnsinos: [] };
         const ensinos = [...new Set(students.map(s => s.ensino || 'N/A'))].sort();
-        const turnos = [...new Set(students.map(s => s.shift || 'N/A'))].sort();
-        return { uniqueEnsinos: ensinos, uniqueTurnos: turnos };
+        return { uniqueEnsinos: ensinos };
     }, [students]);
 
     useEffect(() => {
@@ -158,7 +171,6 @@ export function AttendanceForm() {
 
         setPendingGroups(prev => ({ ...prev, [groupKey]: true }));
         
-        const today = format(new Date(), 'yyyy-MM-dd');
         const attendanceRef = collection(firestore, "attendance");
         const studentIdsToSave = studentsToSave.map(s => s.id);
         
@@ -171,7 +183,7 @@ export function AttendanceForm() {
         }
 
         const deletionPromises = idChunks.map(chunk => {
-            const q = query(collection(firestore, "attendance"), where("date", "==", today), where("studentId", "in", chunk));
+            const q = query(collection(firestore, "attendance"), where("date", "==", todayStart), where("studentId", "in", chunk));
             return getDocs(q);
         });
 
@@ -184,10 +196,10 @@ export function AttendanceForm() {
 
             studentsToSave.forEach((student) => {
                 const status = attendance[student.id];
-                 const record: Omit<AttendanceRecordWithId, 'id'> = {
+                 const record: AttendanceRecordForSave = {
                     studentId: student.id,
                     studentName: student.name,
-                    date: today,
+                    date: todayStart,
                     status: status,
                     grade: student.grade,
                     class: student.class,

@@ -12,7 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { AttendanceRecord } from "@/lib/types";
 import { useFirebase, useCollection, useMemoFirebase } from "@/firebase";
-import { collection, getDocs, query, where, orderBy, DocumentData } from 'firebase/firestore';
+import { collection, getDocs, query, where, orderBy, DocumentData, Timestamp } from 'firebase/firestore';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { exportDailyReportToPDF, type DailyAbsenceWithConsecutive } from "@/lib/pdf-export";
@@ -70,13 +70,47 @@ export function DailyReport() {
 
     const getAbsencesForDate = async (targetDate: Date): Promise<AttendanceRecord[]> => {
         if (!firestore) return [];
-        const dateString = format(targetDate, 'yyyy-MM-dd');
-        
-        let q = query(collection(firestore, 'attendance'), where('date', '==', dateString), where('status', '==', 'absent'));
-        
-        const querySnapshot = await getDocs(q);
-        
-        return querySnapshot.docs.map(doc => ({ ...(doc.data() as Omit<AttendanceRecord, 'id'>), id: doc.id }));
+        const dateStart = new Date(targetDate);
+        dateStart.setHours(0, 0, 0, 0);
+        const dateEnd = new Date(targetDate);
+        dateEnd.setHours(23, 59, 59, 999);
+
+        const startTimestamp = Timestamp.fromDate(dateStart);
+        const endTimestamp = Timestamp.fromDate(dateEnd);
+
+        // This query now handles both string and timestamp dates
+        let q = query(
+            collection(firestore, 'attendance'),
+            where('status', '==', 'absent')
+        );
+
+        try {
+            // First, try querying with timestamp
+            const tsQuery = query(q, where('date', '>=', startTimestamp), where('date', '<=', endTimestamp));
+            let querySnapshot = await getDocs(tsQuery);
+
+            // If no results, try with string date for backward compatibility
+            if (querySnapshot.empty) {
+                const dateString = format(targetDate, 'yyyy-MM-dd');
+                const stringQuery = query(q, where('date', '==', dateString));
+                querySnapshot = await getDocs(stringQuery);
+            }
+            
+            return querySnapshot.docs.map(doc => ({ ...(doc.data() as Omit<AttendanceRecord, 'id'>), id: doc.id }));
+
+        } catch (error) {
+            console.error(`Error fetching absences for ${format(targetDate, 'yyyy-MM-dd')}:`, error);
+            // Fallback for safety, might try just the string query if timestamp fails for some reason
+            try {
+                const dateString = format(targetDate, 'yyyy-MM-dd');
+                const stringQuery = query(q, where('date', '==', dateString));
+                const querySnapshot = await getDocs(stringQuery);
+                return querySnapshot.docs.map(doc => ({ ...(doc.data() as Omit<AttendanceRecord, 'id'>), id: doc.id }));
+            } catch (fallbackError) {
+                 console.error(`Fallback string query also failed for ${format(targetDate, 'yyyy-MM-dd')}:`, fallbackError);
+                 return [];
+            }
+        }
     }
     
     const filteredAndSortedAbsences = useMemo(() => {
@@ -312,5 +346,3 @@ export function DailyReport() {
         </Card>
     );
 }
-
-    

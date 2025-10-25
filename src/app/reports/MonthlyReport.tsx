@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useTransition, useMemo, useEffect } from "react";
@@ -12,7 +11,7 @@ import { Loader2, Search, TriangleAlert, FileDown, ArrowUpDown, ArrowDown, Arrow
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useFirebase, useCollection, useMemoFirebase } from "@/firebase";
-import { collection, getDocs, query, where, DocumentData } from 'firebase/firestore';
+import { collection, getDocs, query, where, DocumentData, Timestamp } from 'firebase/firestore';
 import { Label } from "@/components/ui/label";
 import { exportMonthlyReportToPDF } from "@/lib/pdf-export";
 import { cn } from "@/lib/utils";
@@ -99,19 +98,39 @@ export function MonthlyReport() {
         if (!firestore) return [];
         
         const today = new Date();
-        const startDate = format(startOfMonth(today), 'yyyy-MM-dd');
-        const endDate = format(endOfDay(today), 'yyyy-MM-dd');
+        const startOfMonthDate = startOfMonth(today);
+        startOfMonthDate.setHours(0, 0, 0, 0); // Set to the beginning of the day
 
+        const endOfMonthDate = endOfDay(today); // Use endOfDay for the current day
+
+        const startTimestamp = Timestamp.fromDate(startOfMonthDate);
+        const endTimestamp = Timestamp.fromDate(endOfMonthDate);
+
+        // Firestore `date` field needs to be a Timestamp for this query to work correctly
         const q = query(
             collection(firestore, 'attendance'),
-            where('date', '>=', startDate),
-            where('date', '<=', endDate),
+            where('date', '>=', startTimestamp),
+            where('date', '<=', endTimestamp),
             where('status', '==', 'absent')
         );
 
         try {
             const querySnapshot = await getDocs(q);
-            return querySnapshot.docs.map(doc => ({ ...(doc.data() as Omit<AttendanceRecordWithId, 'id'>), id: doc.id }));
+            return querySnapshot.docs.map(doc => {
+                 const data = doc.data();
+                 // Handle both Timestamp and string date formats for backward compatibility
+                 let dateString: string;
+                 if (data.date instanceof Timestamp) {
+                     dateString = format(data.date.toDate(), 'yyyy-MM-dd');
+                 } else {
+                     dateString = data.date;
+                 }
+                return { 
+                    ...data, 
+                    id: doc.id,
+                    date: dateString
+                } as AttendanceRecordWithId;
+            });
         } catch (error) {
             console.error("Error fetching monthly absences:", error);
             return [];
@@ -201,6 +220,14 @@ export function MonthlyReport() {
         const dataToExport = filteredAndSortedReport.filter(r => r.absenceCount > 0);
         exportMonthlyReportToPDF(searchedDate, filters, dataToExport);
     }
+    
+    // Auto-search on initial load
+    useEffect(() => {
+        if (firestore) {
+            handleSearch();
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [firestore]);
     
     if (isLoadingAllStudents && !allStudents) {
          return (
@@ -364,5 +391,3 @@ export function MonthlyReport() {
         </Card>
     );
 }
-
-    

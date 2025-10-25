@@ -1,4 +1,7 @@
+import { Timestamp } from 'firebase/firestore';
+
 export interface Student {
+  id: string; // The Firestore document ID
   name: string;
   class: string; // Turma
   grade: string; // Série
@@ -7,10 +10,10 @@ export interface Student {
 }
 
 export interface AttendanceRecord {
-  id: string; // O ID do documento do Firestore
+  id: string; // The Firestore document ID
   studentId: string;
   studentName: string;
-  date: string; // YYYY-MM-DD
+  date: string | Timestamp; // YYYY-MM-DD string or Firestore Timestamp
   status: 'present' | 'absent';
   grade: string;
   class: string;
