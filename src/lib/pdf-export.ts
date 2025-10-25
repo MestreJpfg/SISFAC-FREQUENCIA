@@ -1,4 +1,4 @@
-import jsPDF from 'jspdf';
+import jsPDF, { GState } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -20,43 +20,111 @@ export type DailyAbsenceWithConsecutive = AttendanceRecord & {
 const formatDate = (date: Date) => format(date, "dd 'de' MMMM 'de' yyyy", { locale: ptBR });
 const formatFilter = (filter: string) => filter === 'all' ? 'Todos' : filter;
 
-const addBackgroundImage = (doc: jsPDF) => {
+const addHeader = (doc: jsPDF) => {
+    const pageWidth = doc.internal.pageSize.getWidth();
+
+    if (logoBase64) {
+        try {
+            doc.addImage(logoBase64, 'PNG', 14, 12, 25, 25);
+        } catch (error) {
+            console.error("Could not add logo to PDF header: ", error);
+        }
+    }
+    
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(18);
+    doc.setTextColor(40);
+    doc.text('Relatório Diário de Ausências', logoBase64 ? 45 : 14, 20);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(11);
+    doc.setTextColor(100);
+    doc.text('INSTITUIÇÃO DE ENSINO', logoBase64 ? 45 : 14, 28);
+    
+    doc.setDrawColor(220, 220, 220);
+    doc.line(14, 40, pageWidth - 14, 40);
+};
+
+const addFooter = (doc: jsPDF) => {
+    const pageCount = (doc as any).internal.getNumberOfPages();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    
+    doc.setFont('helvetica', 'italic');
+    doc.setFontSize(8);
+
+    for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        const footerText = `Página ${i} de ${pageCount}`;
+        const generatedAtText = `Gerado em: ${format(new Date(), "dd/MM/yyyy HH:mm:ss", { locale: ptBR })}`;
+        
+        doc.text(generatedAtText, 14, pageHeight - 10);
+        doc.text(footerText, pageWidth - 14 - doc.getTextWidth(footerText), pageHeight - 10);
+    }
+};
+
+const addWatermark = (doc: jsPDF) => {
     if (!logoBase64) return;
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
-    const logoWidth = 100; // Adjust as needed
-    const logoHeight = 100; // Adjust as needed
+    const logoWidth = 100;
+    const logoHeight = 100;
     const x = (pageWidth - logoWidth) / 2;
     const y = (pageHeight - logoHeight) / 2;
 
-    try {
-        doc.saveGraphicsState();
-        doc.setGState(new (doc as any).GState({ opacity: 0.1 })); // 90% transparent -> 0.1 opacity
-        doc.addImage(logoBase64, 'PNG', x, y, logoWidth, logoHeight);
-        doc.restoreGraphicsState();
-    } catch (error) {
-        console.error("Could not add background image to PDF: ", error);
+    const pageCount = (doc as any).internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        try {
+            doc.saveGraphicsState();
+            // Use o construtor GState corretamente
+            doc.setGState(new (doc as any).GState({ opacity: 0.1 })); 
+            doc.addImage(logoBase64, 'PNG', x, y, logoWidth, logoHeight);
+            doc.restoreGraphicsState();
+        } catch (error) {
+            console.error("Could not add background image to PDF: ", error);
+        }
     }
 }
 
+
 export const exportDailyReportToPDF = (date: Date, filters: Filters, absences: DailyAbsenceWithConsecutive[]) => {
     const doc = new jsPDF();
-    
-    addBackgroundImage(doc);
-
-    const title = 'Relatório Diário de Ausências';
     const reportDate = formatDate(date);
     const fileName = `Relatorio_Diario_Ausencias_${format(date, 'yyyy-MM-dd')}.pdf`;
+    
+    addHeader(doc);
 
-    doc.setFontSize(18);
-    doc.text(title, 14, 22);
-    doc.setFontSize(11);
-    doc.text(`Data: ${reportDate}`, 14, 30);
-    doc.text(`Total de Ausentes: ${absences.length}`, 14, 36);
+    // Seção de Detalhes do Relatório
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Detalhes do Relatório', 14, 50);
 
-    let filterText = `Filtros Aplicados: Ensino: ${formatFilter(filters.ensino)}, Série: ${formatFilter(filters.grade)}, Turma: ${formatFilter(filters.studentClass)}, Turno: ${formatFilter(filters.shift)}`;
-    const splitFilters = doc.splitTextToSize(filterText, 180);
-    doc.text(splitFilters, 14, 44);
+    const detailsBody = [
+        ['Data do Relatório:', reportDate],
+        ['Total de Alunos Ausentes:', `${absences.length}`],
+        ['Ensino:', formatFilter(filters.ensino)],
+        ['Série:', formatFilter(filters.grade)],
+        ['Turma:', formatFilter(filters.studentClass)],
+        ['Turno:', formatFilter(filters.shift)],
+    ];
+
+    autoTable(doc, {
+        body: detailsBody,
+        startY: 54,
+        theme: 'plain',
+        tableWidth: 'auto',
+        styles: {
+            cellPadding: { top: 1, right: 2, bottom: 1, left: 0 },
+            fontSize: 10,
+        },
+        columnStyles: {
+            0: { fontStyle: 'bold', cellWidth: 50 },
+            1: { cellWidth: 'auto' },
+        }
+    });
+
+    const tableStartY = (doc as any).lastAutoTable.finalY + 10;
 
     const tableColumn = ["Nome do Aluno", "Ensino", "Série", "Turma", "Turno", "Falta Consecutiva"];
     const tableRows: (string | number)[][] = [];
@@ -76,15 +144,27 @@ export const exportDailyReportToPDF = (date: Date, filters: Filters, absences: D
     autoTable(doc, {
         head: [tableColumn],
         body: tableRows,
-        startY: 54,
+        startY: tableStartY,
         headStyles: {
-            fillColor: [229, 115, 115], // Cor destrutiva (vermelho claro)
+            fillColor: [62, 81, 102], // Um tom de azul escuro/cinza
             textColor: [255, 255, 255],
             fontStyle: 'bold',
         },
+        alternateRowStyles: {
+            fillColor: [245, 245, 245] // Um cinza bem claro para linhas alternadas
+        },
         theme: 'grid',
+        didDrawPage: (data) => {
+            // Adiciona cabeçalho em todas as páginas, exceto a primeira (já tem)
+            if (data.pageNumber > 1) {
+                addHeader(doc);
+            }
+        },
+        margin: { top: 45 } // Margem para o cabeçalho
     });
+    
+    addWatermark(doc);
+    addFooter(doc);
 
     doc.save(fileName);
 };
-    
