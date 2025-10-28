@@ -57,10 +57,13 @@ export function DailyReport() {
     
     useEffect(() => {
         setGrade('all');
+        setStudentClass('all');
+        setShift('all');
     }, [ensino]);
     
     useEffect(() => {
         setStudentClass('all');
+        setShift('all');
     }, [grade]);
 
     useEffect(() => {
@@ -78,47 +81,51 @@ export function DailyReport() {
         const startTimestamp = Timestamp.fromDate(dateStart);
         const endTimestamp = Timestamp.fromDate(dateEnd);
 
-        // This query now handles both string and timestamp dates
-        let q = query(
-            collection(firestore, 'attendance'),
-            where('status', '==', 'absent')
-        );
+        let baseQuery = query(collection(firestore, 'attendance'), where('status', '==', 'absent'));
 
-        try {
-            // First, try querying with timestamp
-            const tsQuery = query(q, where('date', '>=', startTimestamp), where('date', '<=', endTimestamp));
-            let querySnapshot = await getDocs(tsQuery);
-
-            // If no results, try with string date for backward compatibility
-            if (querySnapshot.empty) {
-                const dateString = format(targetDate, 'yyyy-MM-dd');
-                const stringQuery = query(q, where('date', '==', dateString));
-                querySnapshot = await getDocs(stringQuery);
-            }
-            
-            return querySnapshot.docs.map(doc => ({ ...(doc.data() as Omit<AttendanceRecord, 'id'>), id: doc.id }));
-
-        } catch (error) {
-            console.error(`Error fetching absences for ${format(targetDate, 'yyyy-MM-dd')}:`, error);
-            // Fallback for safety, might try just the string query if timestamp fails for some reason
-            try {
-                const dateString = format(targetDate, 'yyyy-MM-dd');
-                const stringQuery = query(q, where('date', '==', dateString));
-                const querySnapshot = await getDocs(stringQuery);
-                return querySnapshot.docs.map(doc => ({ ...(doc.data() as Omit<AttendanceRecord, 'id'>), id: doc.id }));
-            } catch (fallbackError) {
-                 console.error(`Fallback string query also failed for ${format(targetDate, 'yyyy-MM-dd')}:`, fallbackError);
-                 return [];
-            }
+        // Apply filters directly to the query
+        if (ensino !== 'all') {
+            baseQuery = query(baseQuery, where('ensino', '==', ensino));
         }
+        if (grade !== 'all') {
+            baseQuery = query(baseQuery, where('grade', '==', grade));
+        }
+        if (studentClass !== 'all') {
+            baseQuery = query(baseQuery, where('class', '==', studentClass));
+        }
+        if (shift !== 'all') {
+            baseQuery = query(baseQuery, where('shift', '==', shift));
+        }
+        
+        let allAbsences: AttendanceRecord[] = [];
+        const seenIds = new Set<string>();
+
+        // Query by Timestamp
+        const tsQuery = query(baseQuery, where('date', '>=', startTimestamp), where('date', '<=', endTimestamp));
+        const tsSnapshot = await getDocs(tsQuery);
+        tsSnapshot.docs.forEach(doc => {
+            if (!seenIds.has(doc.id)) {
+                allAbsences.push({ ...(doc.data() as Omit<AttendanceRecord, 'id'>), id: doc.id });
+                seenIds.add(doc.id);
+            }
+        });
+
+        // Query by String (fallback)
+        const dateString = format(targetDate, 'yyyy-MM-dd');
+        const stringQuery = query(baseQuery, where('date', '==', dateString));
+        const stringSnapshot = await getDocs(stringQuery);
+        stringSnapshot.docs.forEach(doc => {
+             if (!seenIds.has(doc.id)) {
+                allAbsences.push({ ...(doc.data() as Omit<AttendanceRecord, 'id'>), id: doc.id });
+                seenIds.add(doc.id);
+            }
+        });
+
+        return allAbsences;
     }
     
     const filteredAndSortedAbsences = useMemo(() => {
-        let sortableItems = [...absences]
-            .filter(record => ensino === 'all' || record.ensino === ensino)
-            .filter(record => grade === 'all' || record.grade === grade)
-            .filter(record => studentClass === 'all' || record.class === studentClass)
-            .filter(record => shift === 'all' || record.shift === shift);
+        let sortableItems = [...absences];
 
         if (sortConfig !== null) {
             sortableItems.sort((a, b) => {
@@ -131,7 +138,6 @@ export function DailyReport() {
                     return 0;
                 }
                 
-                // Default to string comparison
                 const aStr = String(aValue);
                 const bStr = String(bValue);
 
@@ -141,7 +147,7 @@ export function DailyReport() {
         }
         
         return sortableItems;
-    }, [absences, ensino, grade, studentClass, shift, sortConfig]);
+    }, [absences, sortConfig]);
 
 
     const handleSearch = () => {
@@ -346,3 +352,5 @@ export function DailyReport() {
         </Card>
     );
 }
+
+    
