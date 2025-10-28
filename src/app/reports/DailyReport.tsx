@@ -75,60 +75,38 @@ export function DailyReport() {
         if (!firestore) return [];
         const dateStart = new Date(targetDate);
         dateStart.setHours(0, 0, 0, 0);
-        const dateEnd = new Date(targetDate);
-        dateEnd.setHours(23, 59, 59, 999);
 
         const startTimestamp = Timestamp.fromDate(dateStart);
-        const endTimestamp = Timestamp.fromDate(dateEnd);
-
-        let baseQuery = query(collection(firestore, 'attendance'), where('status', '==', 'absent'));
-
-        // Apply filters directly to the query
-        if (ensino !== 'all') {
-            baseQuery = query(baseQuery, where('ensino', '==', ensino));
-        }
-        if (grade !== 'all') {
-            baseQuery = query(baseQuery, where('grade', '==', grade));
-        }
-        if (studentClass !== 'all') {
-            baseQuery = query(baseQuery, where('class', '==', studentClass));
-        }
-        if (shift !== 'all') {
-            baseQuery = query(baseQuery, where('shift', '==', shift));
-        }
         
-        let allAbsences: AttendanceRecord[] = [];
-        const seenIds = new Set<string>();
+        let baseQuery = query(collection(firestore, 'attendance'), 
+            where('status', '==', 'absent'),
+            where('date', '==', startTimestamp)
+        );
 
-        // Query by Timestamp
-        const tsQuery = query(baseQuery, where('date', '>=', startTimestamp), where('date', '<=', endTimestamp));
-        const tsSnapshot = await getDocs(tsQuery);
-        tsSnapshot.docs.forEach(doc => {
-            if (!seenIds.has(doc.id)) {
-                allAbsences.push({ ...(doc.data() as Omit<AttendanceRecord, 'id'>), id: doc.id });
-                seenIds.add(doc.id);
-            }
-        });
-
-        // Query by String (fallback)
-        const dateString = format(targetDate, 'yyyy-MM-dd');
-        const stringQuery = query(baseQuery, where('date', '==', dateString));
-        const stringSnapshot = await getDocs(stringQuery);
-        stringSnapshot.docs.forEach(doc => {
-             if (!seenIds.has(doc.id)) {
-                allAbsences.push({ ...(doc.data() as Omit<AttendanceRecord, 'id'>), id: doc.id });
-                seenIds.add(doc.id);
-            }
-        });
-
-        return allAbsences;
+        const querySnapshot = await getDocs(baseQuery);
+        return querySnapshot.docs.map(doc => ({ ...(doc.data() as Omit<AttendanceRecord, 'id'>), id: doc.id }));
     }
     
     const filteredAndSortedAbsences = useMemo(() => {
-        let sortableItems = [...absences];
+        let filteredItems = [...absences];
 
+        // Apply filters locally
+        if (ensino !== 'all') {
+            filteredItems = filteredItems.filter(item => item.ensino === ensino);
+        }
+        if (grade !== 'all') {
+            filteredItems = filteredItems.filter(item => item.grade === grade);
+        }
+        if (studentClass !== 'all') {
+            filteredItems = filteredItems.filter(item => item.class === studentClass);
+        }
+        if (shift !== 'all') {
+            filteredItems = filteredItems.filter(item => item.shift === shift);
+        }
+
+        // Apply sorting
         if (sortConfig !== null) {
-            sortableItems.sort((a, b) => {
+            filteredItems.sort((a, b) => {
                 const aValue = a[sortConfig.key];
                 const bValue = b[sortConfig.key];
 
@@ -146,8 +124,8 @@ export function DailyReport() {
             });
         }
         
-        return sortableItems;
-    }, [absences, sortConfig]);
+        return filteredItems;
+    }, [absences, sortConfig, ensino, grade, studentClass, shift]);
 
 
     const handleSearch = () => {
@@ -352,5 +330,7 @@ export function DailyReport() {
         </Card>
     );
 }
+
+    
 
     
