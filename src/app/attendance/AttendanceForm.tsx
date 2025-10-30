@@ -133,18 +133,15 @@ export function AttendanceForm() {
 
         return Object.entries(groups)
             .sort((a, b) => {
-                const [aGrade] = a[0].split(' / ');
-                const [bGrade] = b[0].split(' / ');
-                // Simple numeric sort for grade names like "6º ANO"
-                const aNum = parseInt(aGrade, 10);
-                const bNum = parseInt(bGrade, 10);
-                if (!isNaN(aNum) && !isNaN(bNum)) {
-                    if (aNum !== bNum) return aNum - bNum;
-                }
-                // Fallback to localeCompare for non-numeric or equal grades
+                const [aGrade, aClass] = a[0].split(' / ');
+                const [bGrade, bClass] = b[0].split(' / ');
+                
+                // Comparar 'Série' (grade)
                 const gradeCompare = aGrade.localeCompare(bGrade, undefined, { numeric: true });
                 if (gradeCompare !== 0) return gradeCompare;
-                return a[0].localeCompare(b[0]);
+
+                // Se a série for a mesma, comparar 'Turma' (class)
+                return aClass.localeCompare(bClass, undefined, { numeric: true });
             })
             .map(([key, students]) => ({ key, students }));
     }, [students, activeEnsinoTab, activeTurnoTab]);
