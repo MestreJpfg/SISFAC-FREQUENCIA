@@ -61,10 +61,12 @@ export function ImportForm() {
 
       const studentsRef = collection(firestore, "students");
       
+      // Get existing students to check for updates
       const existingStudentsSnap = await getDocs(studentsRef);
       const existingStudentsMap = new Map<string, { id: string, data: Omit<Student, 'id'> }>();
       existingStudentsSnap.docs.forEach(doc => {
           const student = doc.data() as Omit<Student, 'id'>;
+          // Use a consistent key for matching (lowercase name)
           const studentKey = `${student.name?.trim().toLowerCase()}`;
           existingStudentsMap.set(studentKey, { id: doc.id, data: student });
       });
@@ -73,10 +75,11 @@ export function ImportForm() {
       let newStudentsCount = 0;
       let updatedStudentsCount = 0;
       
+      // Start from the second row to skip the header
       for (let i = 1; i < data.length; i++) {
         const row = data[i];
         if (row.length === 0 || row.every(cell => cell === null || cell === '')) {
-          continue; 
+          continue; // Skip empty rows
         }
         
         const name = row[0];
@@ -98,10 +101,12 @@ export function ImportForm() {
             const existingStudent = existingStudentsMap.get(studentKey);
 
             if (existingStudent) {
+                // If student exists, update it
                 const studentDocRef = doc(firestore, 'students', existingStudent.id);
                 batch.update(studentDocRef, studentData);
                 updatedStudentsCount++;
             } else {
+                // If student is new, create it
                 const newStudentRef = doc(studentsRef);
                 batch.set(newStudentRef, studentData);
                 newStudentsCount++;
@@ -336,4 +341,5 @@ export function ImportForm() {
   );
 }
 
+    
     
