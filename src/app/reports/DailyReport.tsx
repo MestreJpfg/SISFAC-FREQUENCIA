@@ -252,22 +252,22 @@ export function DailyReport() {
                                     <TableHeader>
                                         <TableRow>
                                             <TableHead>Nome do Aluno</TableHead>
-                                            <TableHead>Telefone</TableHead>
                                             <TableHead>Série</TableHead>
                                             <TableHead>Turma</TableHead>
                                             <TableHead>Turno</TableHead>
-                                            <TableHead>Falta Consecutiva</TableHead>
+                                            <TableHead>Consecutivas</TableHead>
+                                            <TableHead>Telefone</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
                                         {filteredAndSortedAbsences.map((record) => (
                                             <TableRow key={record.id}>
                                                 <TableCell className="font-medium">{record.studentName}</TableCell>
-                                                <TableCell>{record.telefone || '-'}</TableCell>
                                                 <TableCell>{record.grade}</TableCell>
                                                 <TableCell>{record.class}</TableCell>
                                                 <TableCell>{record.shift}</TableCell>
                                                 <TableCell>{record.isConsecutive ? 'Sim' : 'Não'}</TableCell>
+                                                <TableCell>{record.telefone || '-'}</TableCell>
                                             </TableRow>
                                         ))}
                                     </TableBody>
@@ -280,5 +280,7 @@ export function DailyReport() {
         </Card>
     );
 }
+
+    
 
     

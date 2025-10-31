@@ -129,17 +129,17 @@ export const exportDailyReportToPDF = (date: Date, filters: Filters, absences: D
 
     const tableStartY = (doc as any).lastAutoTable.finalY + 10;
 
-    const tableColumn = ["Nome do Aluno", "Telefone", "Série", "Turma", "Turno", "Falta Consecutiva"];
+    const tableColumn = ["Nome do Aluno", "Série", "Turma", "Turno", "Consecutivas", "Telefone"];
     const tableRows: (string | number)[][] = [];
 
     absences.forEach(record => {
         const row = [
             record.studentName,
-            record.telefone || '-',
             record.grade,
             record.class,
             record.shift,
             record.isConsecutive ? "Sim" : "Não",
+            record.telefone || '-',
         ];
         tableRows.push(row);
     });
@@ -177,3 +177,5 @@ export const exportDailyReportToPDF = (date: Date, filters: Filters, absences: D
 
     doc.save(fileName);
 };
+
+    
