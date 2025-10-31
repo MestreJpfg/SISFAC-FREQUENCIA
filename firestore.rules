@@ -2,46 +2,41 @@
  * @fileoverview Firestore Security Rules for the school attendance tracker.
  *
  * Core Philosophy:
- * This ruleset prioritizes simplicity and security during the prototyping phase.
- * It allows full read access to all data and enforces that writes can only be
- * performed by authenticated users. This is suitable for an internal tool
- * where all authenticated users (even anonymous ones) are considered trusted operators.
+ * This ruleset prioritizes simplicity and functionality for an internal tool.
+ * It allows any authenticated user (including anonymous ones) to read and write
+ * all data, which is necessary for the app's core features like batch
+ * attendance updates and data imports.
  *
  * Data Structure:
  * - /students/{studentId}: Stores individual student data.
  * - /attendance/{attendanceId}: Stores individual attendance records.
  *
  * Key Security Decisions:
- * - Full read access is granted to all users, including unauthenticated users.
- * - Write access (create, update, delete) is restricted to any signed-in user.
- * - No listing restrictions are applied during prototyping, allowing all clients to list any collections.
+ * - Read and Write access (get, list, create, update, delete) is restricted to any signed-in user.
+ *   This is suitable for this internal application where all operators are trusted.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Allows anyone to read student data, but only signed-in users can write.
+     * @description Allows any signed-in user to read and write student data.
      * @path /students/{studentId}
-     * @allow (get, list): Any user can read all student profiles.
-     * @allow (create, update, delete): Any signed-in user can manage student records.
-     * @principle Allows public read access and authenticated write access for this internal tool.
+     * @allow (read, write): Any signed-in user can manage student records.
+     * @principle Aligns with the internal tool model where all authenticated users are operators.
      */
     match /students/{studentId} {
-      allow get, list: if true;
-      allow write: if isSignedIn();
+      allow read, write: if isSignedIn();
     }
 
     /**
-     * @description Allows anyone to read attendance records, but only signed-in users can write.
+     * @description Allows any signed-in user to read and write attendance records.
      * @path /attendance/{attendanceId}
-     * @allow (get, list): Any user can read all attendance records.
-     * @allow (create, update, delete): Any signed-in user can manage attendance records.
-     * @principle Allows public read access and authenticated write access for this internal tool.
+     * @allow (read, write): Any signed-in user can manage attendance records.
+     * @principle Aligns with the internal tool model where all authenticated users are operators.
      */
     match /attendance/{attendanceId} {
-      allow get, list: if true;
-      allow write: if isSignedIn();
+      allow read, write: if isSignedIn();
     }
   }
 
