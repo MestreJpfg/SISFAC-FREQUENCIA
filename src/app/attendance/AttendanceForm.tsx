@@ -218,7 +218,6 @@ export function AttendanceForm() {
             });
         })
         .catch(e => {
-            console.error("Error saving attendance:", e);
              const permissionError = new FirestorePermissionError({
                 path: attendanceRef.path,
                 operation: 'write',
@@ -229,7 +228,7 @@ export function AttendanceForm() {
              toast({
                  variant: 'destructive',
                  title: 'Erro',
-                 description: `Falha ao salvar a frequência para ${groupKey}.`,
+                 description: `Falha ao salvar a frequência para ${groupKey}. Verifique as permissões.`,
              });
         })
         .finally(() => {
