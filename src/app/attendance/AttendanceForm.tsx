@@ -25,7 +25,7 @@ type StudentWithId = Student & { id: string };
 type AttendanceRecordForSave = {
     studentId: string;
     studentName: string;
-    date: Timestamp; // Changed to Timestamp
+    date: Timestamp; // Keep as Timestamp for consistency
     status: 'present' | 'absent';
     grade: string;
     class: string;
@@ -203,7 +203,7 @@ export function AttendanceForm() {
                     class: student.class,
                     shift: student.shift,
                     ensino: student.ensino,
-                    telefone: student.telefone,
+                    telefone: student.telefone || "",
                 };
                 const newDocRef = doc(attendanceRef);
                 batch.set(newDocRef, record);
@@ -344,9 +344,5 @@ export function AttendanceForm() {
         </div>
     );
 }
-
-    
-
-    
 
     
