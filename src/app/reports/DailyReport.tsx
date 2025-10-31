@@ -122,7 +122,7 @@ export function DailyReport() {
 
 
     const handleSearch = () => {
-        if (!date) return;
+        if (!date || !allStudents) return;
         
         startTransition(async () => {
             setSearchedDate(date);
@@ -132,13 +132,18 @@ export function DailyReport() {
             ]);
             
             const prevDayAbsenceSet = new Set(prevDayAbsences.map(a => a.studentId));
+            const studentsMap = new Map(allStudents.map(s => [s.id, s]));
 
-            const absencesWithConsecutive: DailyAbsenceWithConsecutive[] = currentAbsences.map(absence => ({
-                ...absence,
-                isConsecutive: prevDayAbsenceSet.has(absence.studentId)
-            }));
+            const absencesWithDetails: DailyAbsenceWithConsecutive[] = currentAbsences.map(absence => {
+                const student = studentsMap.get(absence.studentId);
+                return {
+                    ...absence,
+                    telefone: student?.telefone || absence.telefone || '-', // Fallback
+                    isConsecutive: prevDayAbsenceSet.has(absence.studentId)
+                };
+            });
             
-            setAbsences(absencesWithConsecutive);
+            setAbsences(absencesWithDetails);
         });
     };
 
@@ -150,11 +155,11 @@ export function DailyReport() {
     
     // Auto-search on initial load with today's date
     useEffect(() => {
-        if (firestore && !searchedDate) {
+        if (firestore && allStudents && !searchedDate) {
             handleSearch();
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [firestore]);
+    }, [firestore, allStudents]);
 
     return (
         <Card>
@@ -232,7 +237,7 @@ export function DailyReport() {
                     </div>
                 </div>
 
-                {isPending ? (
+                {isPending || (isLoadingAllStudents && !searchedDate) ? (
                     <div className="flex justify-center items-center h-60">
                         <Loader2 className="h-8 w-8 animate-spin text-primary" />
                     </div>
@@ -275,3 +280,5 @@ export function DailyReport() {
         </Card>
     );
 }
+
+    
