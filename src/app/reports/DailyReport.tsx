@@ -16,7 +16,7 @@ import { collection, getDocs, query, where, DocumentData, Timestamp } from 'fire
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { exportDailyReportToPDF, type DailyAbsenceWithConsecutive } from "@/lib/pdf-export";
-import { cn } from "@/lib/utils";
+import { EditablePhoneCell } from "./EditablePhoneCell";
 
 type Student = { id: string; name: string; ensino: string; grade: string; class: string; shift: string; telefone?: string };
 
@@ -32,7 +32,8 @@ export function DailyReport() {
     const [studentClass, setStudentClass] = useState<string>('all');
     const [shift, setShift] = useState<string>('all');
     
-    const { data: allStudents, isLoading: isLoadingAllStudents } = useCollection<Student>(useMemoFirebase(() => firestore ? query(collection(firestore, 'students')) : null, [firestore]));
+    const studentsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'students')) : null, [firestore]);
+    const { data: allStudents, isLoading: isLoadingAllStudents } = useCollection<Student>(studentsQuery);
 
     const { ensinos, grades, classes, shifts } = useMemo(() => {
         if (!allStudents) return { ensinos: [], grades: [], classes: [], shifts: [] };
@@ -123,6 +124,16 @@ export function DailyReport() {
         });
     };
 
+    const handlePhoneUpdate = (studentId: string, newPhone: string) => {
+        setAbsences(currentAbsences => 
+            currentAbsences.map(absence => 
+                absence.studentId === studentId 
+                ? { ...absence, telefone: newPhone } 
+                : absence
+            )
+        );
+    }
+
     const filteredAndSortedAbsences = useMemo(() => {
         return [...absences].sort((a, b) => {
             const compare = (key: keyof DailyAbsenceWithConsecutive, numeric = false) => {
@@ -151,7 +162,6 @@ export function DailyReport() {
         exportDailyReportToPDF(searchedDate, filters, filteredAndSortedAbsences);
     }
     
-    // Auto-search on initial load with today's date
     useEffect(() => {
         if (firestore && allStudents && !searchedDate) {
             handleSearch();
@@ -159,16 +169,11 @@ export function DailyReport() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [firestore, allStudents]);
 
-    const formatTelefone = (telefone?: string) => {
-        if (!telefone) return '-';
-        return telefone.split(',').slice(0, 2).join(', ');
-    }
-
     return (
         <Card>
             <CardHeader>
                 <CardTitle>Relatório Diário de Ausências</CardTitle>
-                <CardDescription>Selecione uma data e filtre para ver os alunos ausentes.</CardDescription>
+                <CardDescription>Selecione uma data e filtre para ver os alunos ausentes. Clique no telefone para editar.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
                 <div className="space-y-4">
@@ -270,7 +275,13 @@ export function DailyReport() {
                                                 <TableCell>{record.class}</TableCell>
                                                 <TableCell>{record.shift}</TableCell>
                                                 <TableCell>{record.isConsecutive ? 'Sim' : 'Não'}</TableCell>
-                                                <TableCell>{formatTelefone(record.telefone)}</TableCell>
+                                                <TableCell>
+                                                    <EditablePhoneCell 
+                                                        studentId={record.studentId}
+                                                        initialPhone={record.telefone || ''}
+                                                        onPhoneUpdate={handlePhoneUpdate}
+                                                    />
+                                                </TableCell>
                                             </TableRow>
                                         ))}
                                     </TableBody>
@@ -283,5 +294,3 @@ export function DailyReport() {
         </Card>
     );
 }
-
-    
