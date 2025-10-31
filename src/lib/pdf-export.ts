@@ -164,15 +164,15 @@ export const exportDailyReportToPDF = (date: Date, filters: Filters, absences: D
         styles: {
             fontSize: 8,
             cellPadding: { top: 1.5, right: 2, bottom: 1.5, left: 2 },
-            overflow: 'linebreak', // Ensure it breaks line if absolutely necessary
+            overflow: 'linebreak',
         },
         columnStyles: {
-            0: { cellWidth: 'auto' },   // Nome do Aluno (auto)
-            1: { cellWidth: 20 },       // Série
-            2: { cellWidth: 15 },       // Turma
-            3: { cellWidth: 20 },       // Turno
-            4: { cellWidth: 25 },       // Consecutivas
-            5: { cellWidth: 40 },       // Telefone
+            0: { cellWidth: 'auto' }, // Nome do Aluno
+            1: { cellWidth: 22 },    // Série
+            2: { cellWidth: 15 },    // Turma
+            3: { cellWidth: 20 },    // Turno
+            4: { cellWidth: 25 },    // Consecutivas
+            5: { cellWidth: 38 },    // Telefone
         },
         alternateRowStyles: {
             fillColor: [245, 245, 245]
@@ -191,5 +191,3 @@ export const exportDailyReportToPDF = (date: Date, filters: Filters, absences: D
 
     doc.save(fileName);
 };
-
-    
