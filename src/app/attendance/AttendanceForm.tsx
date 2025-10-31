@@ -218,18 +218,12 @@ export function AttendanceForm() {
             });
         })
         .catch(e => {
-             const permissionError = new FirestorePermissionError({
+            const permissionError = new FirestorePermissionError({
                 path: attendanceRef.path,
                 operation: 'write',
                 requestResourceData: { info: `Batch write for attendance failed for group ${groupKey}.` }
             });
             errorEmitter.emit('permission-error', permissionError);
-             
-             toast({
-                 variant: 'destructive',
-                 title: 'Erro',
-                 description: `Falha ao salvar a frequência para ${groupKey}. Verifique as permissões.`,
-             });
         })
         .finally(() => {
             setPendingGroups(prev => ({ ...prev, [groupKey]: false }));
@@ -350,6 +344,8 @@ export function AttendanceForm() {
         </div>
     );
 }
+
+    
 
     
 
