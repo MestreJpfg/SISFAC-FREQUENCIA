@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useTransition, useEffect, useMemo } from "react";
-import { format, subDays } from "date-fns";
+import { format, subDays, startOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Calendar as CalendarIcon, Loader2, Search, FileDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -69,11 +69,10 @@ export function DailyReport() {
 
     const getAbsencesForDate = async (targetDate: Date): Promise<AttendanceRecord[]> => {
         if (!firestore) return [];
-        const dateStart = new Date(targetDate);
-        dateStart.setHours(0, 0, 0, 0);
-
+        const dateStart = startOfDay(targetDate);
         const startTimestamp = Timestamp.fromDate(dateStart);
         
+        // Since we only store 'absent' records, this query is now perfect.
         let q = query(collection(firestore, 'attendance'), 
             where('status', '==', 'absent'),
             where('date', '==', startTimestamp)
@@ -88,9 +87,12 @@ export function DailyReport() {
         
         startTransition(async () => {
             setSearchedDate(date);
+            
+            const prevDay = startOfDay(subDays(date, 1));
+            
             const [currentAbsencesResult, prevDayAbsencesResult] = await Promise.all([
                 getAbsencesForDate(date),
-                getAbsencesForDate(subDays(date, 1))
+                getAbsencesForDate(prevDay)
             ]);
             
             // Apply local filters
@@ -294,3 +296,6 @@ export function DailyReport() {
         </Card>
     );
 }
+
+
+    

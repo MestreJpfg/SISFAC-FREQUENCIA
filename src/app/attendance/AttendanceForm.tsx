@@ -75,10 +75,10 @@ export function AttendanceForm() {
     useEffect(() => {
         if (students) {
             const initialAttendance: Record<string, 'present' | 'absent'> = {};
-            const todaysAttendanceMap = todaysAttendance ? new Map(todaysAttendance.map(att => [att.studentId, att.status])) : new Map();
+            const todaysAbsenceMap = todaysAttendance ? new Map(todaysAttendance.map(att => [att.studentId, att.status])) : new Map();
 
             students.forEach(student => {
-                initialAttendance[student.id] = todaysAttendanceMap.get(student.id) || 'present';
+                initialAttendance[student.id] = todaysAbsenceMap.get(student.id) || 'present';
             });
             setAttendance(initialAttendance);
         }
@@ -180,8 +180,13 @@ export function AttendanceForm() {
             idChunks.push(studentIdsToSave.slice(i, i + 30));
         }
 
+        // 1. First, delete all existing absence records for this group on this day.
+        // This handles cases where a student was marked absent and is now present.
         const deletionPromises = idChunks.map(chunk => {
-            const q = query(collection(firestore, "attendance"), where("date", "==", todayStart), where("studentId", "in", chunk));
+            const q = query(collection(firestore, "attendance"), 
+                where("date", "==", todayStart), 
+                where("studentId", "in", chunk)
+            );
             return getDocs(q);
         });
 
@@ -192,23 +197,28 @@ export function AttendanceForm() {
                 });
             });
 
+            // 2. Now, add new records ONLY for students marked as 'absent'.
             studentsToSave.forEach((student) => {
                 const status = attendance[student.id];
-                 const record: AttendanceRecordForSave = {
-                    studentId: student.id,
-                    studentName: student.name,
-                    date: todayStart,
-                    status: status,
-                    grade: student.grade,
-                    class: student.class,
-                    shift: student.shift,
-                    ensino: student.ensino,
-                    telefone: student.telefone || "",
-                };
-                const newDocRef = doc(attendanceRef);
-                batch.set(newDocRef, record);
+                
+                if (status === 'absent') {
+                     const record: Omit<AttendanceRecordForSave, 'status'> & { status: 'absent' } = {
+                        studentId: student.id,
+                        studentName: student.name,
+                        date: todayStart,
+                        status: 'absent', // Only saving absent records
+                        grade: student.grade,
+                        class: student.class,
+                        shift: student.shift,
+                        ensino: student.ensino,
+                        telefone: student.telefone || "",
+                    };
+                    const newDocRef = doc(attendanceRef);
+                    batch.set(newDocRef, record);
+                }
             });
 
+            // 3. Commit the batch
             return batch.commit();
         })
         .then(() => {
@@ -344,5 +354,7 @@ export function AttendanceForm() {
         </div>
     );
 }
+
+    
 
     
