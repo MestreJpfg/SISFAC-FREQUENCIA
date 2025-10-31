@@ -27,9 +27,8 @@ export function FirebaseClientProvider({ children }: FirebaseClientProviderProps
         // No user is signed in, attempt anonymous sign-in.
         signInAnonymously(firebaseServices.auth).catch((error) => {
           console.error("Anonymous sign-in failed:", error);
-          // Even if sign-in fails, we'll mark as ready to not block the UI forever.
-          // Parts of the app requiring auth will fail, but at least the app loads.
-          setIsReady(true);
+          // If sign-in fails, we do not mark as ready to prevent the app from
+          // running in a broken state.
         });
         // The onAuthStateChanged listener will be called again once the anonymous
         // user is signed in, at which point isReady will be set to true.
