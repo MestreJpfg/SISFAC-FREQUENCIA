@@ -22,33 +22,36 @@ const formatFilter = (filter: string) => filter === 'all' ? 'Todos' : filter;
 
 const addHeader = (doc: jsPDF) => {
     const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 10;
 
     if (logoBase64) {
         try {
-            doc.addImage(logoBase64, 'PNG', 14, 12, 25, 25);
+            doc.addImage(logoBase64, 'PNG', margin, 12, 25, 25);
         } catch (error) {
             console.error("Could not add logo to PDF header: ", error);
         }
     }
     
+    const titleX = logoBase64 ? 40 : margin;
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(18);
     doc.setTextColor(40);
-    doc.text('Relatório Diário de Ausências', logoBase64 ? 45 : 14, 20);
+    doc.text('Relatório Diário de Ausências', titleX, 20);
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(11);
     doc.setTextColor(100);
-    doc.text('INSTITUIÇÃO DE ENSINO', logoBase64 ? 45 : 14, 28);
+    doc.text('INSTITUIÇÃO DE ENSINO', titleX, 28);
     
     doc.setDrawColor(220, 220, 220);
-    doc.line(14, 40, pageWidth - 14, 40);
+    doc.line(margin, 40, pageWidth - margin, 40);
 };
 
 const addFooter = (doc: jsPDF) => {
     const pageCount = (doc as any).internal.getNumberOfPages();
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 10;
     
     doc.setFont('helvetica', 'italic');
     doc.setFontSize(8);
@@ -58,8 +61,8 @@ const addFooter = (doc: jsPDF) => {
         const footerText = `Página ${i} de ${pageCount}`;
         const generatedAtText = `Gerado em: ${format(new Date(), "dd/MM/yyyy HH:mm:ss", { locale: ptBR })}`;
         
-        doc.text(generatedAtText, 14, pageHeight - 10);
-        doc.text(footerText, pageWidth - 14 - doc.getTextWidth(footerText), pageHeight - 10);
+        doc.text(generatedAtText, margin, pageHeight - 10);
+        doc.text(footerText, pageWidth - margin - doc.getTextWidth(footerText), pageHeight - 10);
     }
 };
 
@@ -88,16 +91,17 @@ const addWatermark = (doc: jsPDF) => {
 
 
 export const exportDailyReportToPDF = (date: Date, filters: Filters, absences: DailyAbsenceWithConsecutive[]) => {
-    const doc = new jsPDF();
+    const doc = new jsPDF({ orientation: 'p' }); // p for portrait
     const reportDate = formatDate(date);
     const fileName = `Relatorio_Diario_Ausencias_${format(date, 'yyyy-MM-dd')}.pdf`;
+    const margin = 10;
     
     addHeader(doc);
 
     // Seção de Detalhes do Relatório
     doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
-    doc.text('Detalhes do Relatório', 14, 50);
+    doc.text('Detalhes do Relatório', margin, 50);
 
     const detailsBody = [
         ['Data do Relatório:', reportDate],
@@ -145,21 +149,27 @@ export const exportDailyReportToPDF = (date: Date, filters: Filters, absences: D
         body: tableRows,
         startY: tableStartY,
         headStyles: {
-            fillColor: [62, 81, 102], // Um tom de azul escuro/cinza
+            fillColor: [41, 128, 185], // Um tom de azul profissional
             textColor: [255, 255, 255],
             fontStyle: 'bold',
+            fontSize: 9,
+            cellPadding: 2,
+        },
+        styles: {
+            fontSize: 8,
+            cellPadding: 2,
+            overflow: 'linebreak', // Ensure it breaks line if absolutely necessary
         },
         alternateRowStyles: {
-            fillColor: [245, 245, 245] // Um cinza bem claro para linhas alternadas
+            fillColor: [245, 245, 245]
         },
         theme: 'grid',
         didDrawPage: (data) => {
-            // Adiciona cabeçalho em todas as páginas, exceto a primeira (já tem)
             if (data.pageNumber > 1) {
                 addHeader(doc);
             }
         },
-        margin: { top: 45 } // Margem para o cabeçalho
+        margin: { top: 45, left: margin, right: margin }
     });
     
     addWatermark(doc);
