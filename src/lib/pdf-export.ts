@@ -1,4 +1,4 @@
-import jsPDF, { GState } from 'jspdf';
+import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -77,7 +77,6 @@ const addWatermark = (doc: jsPDF) => {
         doc.setPage(i);
         try {
             doc.saveGraphicsState();
-            // Use o construtor GState corretamente
             doc.setGState(new (doc as any).GState({ opacity: 0.1 })); 
             doc.addImage(logoBase64, 'PNG', x, y, logoWidth, logoHeight);
             doc.restoreGraphicsState();
@@ -126,13 +125,13 @@ export const exportDailyReportToPDF = (date: Date, filters: Filters, absences: D
 
     const tableStartY = (doc as any).lastAutoTable.finalY + 10;
 
-    const tableColumn = ["Nome do Aluno", "Ensino", "Série", "Turma", "Turno", "Falta Consecutiva"];
+    const tableColumn = ["Nome do Aluno", "Telefone", "Série", "Turma", "Turno", "Falta Consecutiva"];
     const tableRows: (string | number)[][] = [];
 
     absences.forEach(record => {
         const row = [
             record.studentName,
-            record.ensino,
+            record.telefone || '-',
             record.grade,
             record.class,
             record.shift,

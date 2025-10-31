@@ -87,14 +87,16 @@ export function ImportForm() {
         const studentClass = row[2];
         const shift = row[3];
         const ensino = row[4];
+        const telefone = row[5];
 
         if (name && typeof name === 'string' && name.trim() !== '') {
-            const studentData = {
+            const studentData: Omit<Student, 'id'> = {
                 name: name.trim(),
                 grade: grade?.toString().trim() ?? "N/A",
                 class: studentClass?.toString().trim() ?? "N/A",
                 shift: shift?.toString().trim() ?? "N/A",
                 ensino: ensino?.toString().trim() ?? "N/A",
+                telefone: telefone?.toString().trim() ?? "",
             };
 
             const studentKey = studentData.name.toLowerCase();
@@ -340,6 +342,3 @@ export function ImportForm() {
     </div>
   );
 }
-
-    
-    

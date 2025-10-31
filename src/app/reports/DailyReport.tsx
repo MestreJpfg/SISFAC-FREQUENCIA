@@ -18,7 +18,7 @@ import { Label } from "@/components/ui/label";
 import { exportDailyReportToPDF, type DailyAbsenceWithConsecutive } from "@/lib/pdf-export";
 import { cn } from "@/lib/utils";
 
-type Student = { id: string; name: string; ensino: string; grade: string; class: string; shift: string; };
+type Student = { id: string; name: string; ensino: string; grade: string; class: string; shift: string; telefone?: string };
 
 export function DailyReport() {
     const { firestore } = useFirebase();
@@ -66,7 +66,6 @@ export function DailyReport() {
         setShift('all');
     }, [studentClass]);
 
-
     const getAbsencesForDate = async (targetDate: Date): Promise<AttendanceRecord[]> => {
         if (!firestore) return [];
         const dateStart = new Date(targetDate);
@@ -74,15 +73,15 @@ export function DailyReport() {
 
         const startTimestamp = Timestamp.fromDate(dateStart);
         
-        let baseQuery = query(collection(firestore, 'attendance'), 
+        let q = query(collection(firestore, 'attendance'), 
             where('status', '==', 'absent'),
             where('date', '==', startTimestamp)
         );
 
-        const querySnapshot = await getDocs(baseQuery);
+        const querySnapshot = await getDocs(q);
         return querySnapshot.docs.map(doc => ({ ...(doc.data() as Omit<AttendanceRecord, 'id'>), id: doc.id }));
     }
-    
+
     const filteredAndSortedAbsences = useMemo(() => {
         let filteredItems = [...absences];
 
@@ -99,28 +98,26 @@ export function DailyReport() {
         if (shift !== 'all') {
             filteredItems = filteredItems.filter(item => item.shift === shift);
         }
-
+        
         // Apply multi-level sorting
-        filteredItems.sort((a, b) => {
-            const compare = (key: keyof DailyAbsenceWithConsecutive) => {
+        return filteredItems.sort((a, b) => {
+            const compare = (key: keyof DailyAbsenceWithConsecutive, numeric = false) => {
                 const valA = a[key] || '';
                 const valB = b[key] || '';
                 if (typeof valA === 'string' && typeof valB === 'string') {
-                    return valA.localeCompare(valB, undefined, { numeric: true });
+                    return valA.localeCompare(valB, undefined, { numeric });
                 }
                 return 0;
             };
 
             return (
                 compare('ensino') ||
-                compare('grade') ||
+                compare('grade', true) ||
                 compare('class') ||
                 compare('shift') ||
                 compare('studentName')
             );
         });
-        
-        return filteredItems;
     }, [absences, ensino, grade, studentClass, shift]);
 
 
@@ -250,7 +247,7 @@ export function DailyReport() {
                                     <TableHeader>
                                         <TableRow>
                                             <TableHead>Nome do Aluno</TableHead>
-                                            <TableHead>Ensino</TableHead>
+                                            <TableHead>Telefone</TableHead>
                                             <TableHead>Série</TableHead>
                                             <TableHead>Turma</TableHead>
                                             <TableHead>Turno</TableHead>
@@ -261,7 +258,7 @@ export function DailyReport() {
                                         {filteredAndSortedAbsences.map((record) => (
                                             <TableRow key={record.id}>
                                                 <TableCell className="font-medium">{record.studentName}</TableCell>
-                                                <TableCell>{record.ensino}</TableCell>
+                                                <TableCell>{record.telefone || '-'}</TableCell>
                                                 <TableCell>{record.grade}</TableCell>
                                                 <TableCell>{record.class}</TableCell>
                                                 <TableCell>{record.shift}</TableCell>

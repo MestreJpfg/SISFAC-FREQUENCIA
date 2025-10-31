@@ -31,6 +31,7 @@ type AttendanceRecordForSave = {
     class: string;
     shift: string;
     ensino: string;
+    telefone?: string;
 };
 
 type AttendanceRecordFromDB = Omit<AttendanceRecordForSave, 'date'> & {
@@ -202,6 +203,7 @@ export function AttendanceForm() {
                     class: student.class,
                     shift: student.shift,
                     ensino: student.ensino,
+                    telefone: student.telefone,
                 };
                 const newDocRef = doc(attendanceRef);
                 batch.set(newDocRef, record);

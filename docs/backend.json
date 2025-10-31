@@ -26,6 +26,10 @@
         "ensino": {
           "type": "string",
           "description": "The education level the student is in (e.g., 'Fundamental', 'Médio')."
+        },
+        "telefone": {
+          "type": "string",
+          "description": "The student's phone number(s). Multiple numbers can be separated by commas."
         }
       },
       "required": [
@@ -78,6 +82,10 @@
         "shift": {
           "type": "string",
           "description": "The shift of the student at the time of the record."
+        },
+        "telefone": {
+            "type": "string",
+            "description": "The student's phone number(s) at the time of the record."
         }
       },
       "required": [

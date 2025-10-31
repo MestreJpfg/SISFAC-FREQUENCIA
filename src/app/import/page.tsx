@@ -10,7 +10,7 @@ export default function ImportPage() {
             <h1 className="text-3xl font-bold font-headline">Gerenciar Dados dos Alunos</h1>
             <p className="text-muted-foreground mt-2">
                 Use as opções abaixo para importar, atualizar ou limpar o banco de dados de alunos.
-                O arquivo Excel deve conter as colunas na seguinte ordem: Nome, Série, Turma, Turno, Ensino.
+                O arquivo Excel deve conter as colunas na seguinte ordem: Nome, Série, Turma, Turno, Ensino, Telefone.
             </p>
         </div>
         <ImportForm />
