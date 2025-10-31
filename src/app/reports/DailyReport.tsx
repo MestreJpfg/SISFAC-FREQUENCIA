@@ -82,25 +82,49 @@ export function DailyReport() {
         return querySnapshot.docs.map(doc => ({ ...(doc.data() as Omit<AttendanceRecord, 'id'>), id: doc.id }));
     }
 
-    const filteredAndSortedAbsences = useMemo(() => {
-        let filteredItems = [...absences];
-
-        // Apply filters locally
-        if (ensino !== 'all') {
-            filteredItems = filteredItems.filter(item => item.ensino === ensino);
-        }
-        if (grade !== 'all') {
-            filteredItems = filteredItems.filter(item => item.grade === grade);
-        }
-        if (studentClass !== 'all') {
-            filteredItems = filteredItems.filter(item => item.class === studentClass);
-        }
-        if (shift !== 'all') {
-            filteredItems = filteredItems.filter(item => item.shift === shift);
-        }
+    const handleSearch = () => {
+        if (!date || !allStudents) return;
         
-        // Apply multi-level sorting
-        return filteredItems.sort((a, b) => {
+        startTransition(async () => {
+            setSearchedDate(date);
+            const [currentAbsencesResult, prevDayAbsencesResult] = await Promise.all([
+                getAbsencesForDate(date),
+                getAbsencesForDate(subDays(date, 1))
+            ]);
+            
+            // Apply local filters
+            let filteredItems = [...currentAbsencesResult];
+            if (ensino !== 'all') {
+                filteredItems = filteredItems.filter(item => item.ensino === ensino);
+            }
+            if (grade !== 'all') {
+                filteredItems = filteredItems.filter(item => item.grade === grade);
+            }
+            if (studentClass !== 'all') {
+                filteredItems = filteredItems.filter(item => item.class === studentClass);
+            }
+            if (shift !== 'all') {
+                filteredItems = filteredItems.filter(item => item.shift === shift);
+            }
+
+            const prevDayAbsenceSet = new Set(prevDayAbsencesResult.map(a => a.studentId));
+            const studentsMap = new Map(allStudents.map(s => [s.id, s]));
+
+            const absencesWithDetails: DailyAbsenceWithConsecutive[] = filteredItems.map(absence => {
+                const student = studentsMap.get(absence.studentId);
+                return {
+                    ...absence,
+                    telefone: student?.telefone || absence.telefone || '-', // Fallback
+                    isConsecutive: prevDayAbsenceSet.has(absence.studentId)
+                };
+            });
+            
+            setAbsences(absencesWithDetails);
+        });
+    };
+
+    const filteredAndSortedAbsences = useMemo(() => {
+        return [...absences].sort((a, b) => {
             const compare = (key: keyof DailyAbsenceWithConsecutive, numeric = false) => {
                 const valA = a[key] || '';
                 const valB = b[key] || '';
@@ -118,34 +142,8 @@ export function DailyReport() {
                 compare('studentName')
             );
         });
-    }, [absences, ensino, grade, studentClass, shift]);
+    }, [absences]);
 
-
-    const handleSearch = () => {
-        if (!date || !allStudents) return;
-        
-        startTransition(async () => {
-            setSearchedDate(date);
-            const [currentAbsences, prevDayAbsences] = await Promise.all([
-                getAbsencesForDate(date),
-                getAbsencesForDate(subDays(date, 1))
-            ]);
-            
-            const prevDayAbsenceSet = new Set(prevDayAbsences.map(a => a.studentId));
-            const studentsMap = new Map(allStudents.map(s => [s.id, s]));
-
-            const absencesWithDetails: DailyAbsenceWithConsecutive[] = currentAbsences.map(absence => {
-                const student = studentsMap.get(absence.studentId);
-                return {
-                    ...absence,
-                    telefone: student?.telefone || absence.telefone || '-', // Fallback
-                    isConsecutive: prevDayAbsenceSet.has(absence.studentId)
-                };
-            });
-            
-            setAbsences(absencesWithDetails);
-        });
-    };
 
     const handleExport = () => {
         if (!searchedDate) return;
@@ -160,6 +158,11 @@ export function DailyReport() {
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [firestore, allStudents]);
+
+    const formatTelefone = (telefone?: string) => {
+        if (!telefone) return '-';
+        return telefone.split(',').slice(0, 2).join(', ');
+    }
 
     return (
         <Card>
@@ -267,7 +270,7 @@ export function DailyReport() {
                                                 <TableCell>{record.class}</TableCell>
                                                 <TableCell>{record.shift}</TableCell>
                                                 <TableCell>{record.isConsecutive ? 'Sim' : 'Não'}</TableCell>
-                                                <TableCell>{record.telefone || '-'}</TableCell>
+                                                <TableCell>{formatTelefone(record.telefone)}</TableCell>
                                             </TableRow>
                                         ))}
                                     </TableBody>
@@ -280,7 +283,5 @@ export function DailyReport() {
         </Card>
     );
 }
-
-    
 
     

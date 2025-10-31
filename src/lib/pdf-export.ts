@@ -1,3 +1,4 @@
+
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { format } from 'date-fns';
@@ -89,6 +90,11 @@ const addWatermark = (doc: jsPDF) => {
     }
 }
 
+const formatTelefone = (telefone?: string) => {
+    if (!telefone) return '-';
+    return telefone.split(',').slice(0, 2).join(', ');
+}
+
 
 export const exportDailyReportToPDF = (date: Date, filters: Filters, absences: DailyAbsenceWithConsecutive[]) => {
     const doc = new jsPDF({ orientation: 'p' }); // p for portrait
@@ -139,7 +145,7 @@ export const exportDailyReportToPDF = (date: Date, filters: Filters, absences: D
             record.class,
             record.shift,
             record.isConsecutive ? "Sim" : "Não",
-            record.telefone || '-',
+            formatTelefone(record.telefone),
         ];
         tableRows.push(row);
     });
@@ -157,8 +163,16 @@ export const exportDailyReportToPDF = (date: Date, filters: Filters, absences: D
         },
         styles: {
             fontSize: 8,
-            cellPadding: 2,
+            cellPadding: { top: 1.5, right: 2, bottom: 1.5, left: 2 },
             overflow: 'linebreak', // Ensure it breaks line if absolutely necessary
+        },
+        columnStyles: {
+            0: { cellWidth: 'auto' },   // Nome do Aluno (auto)
+            1: { cellWidth: 20 },       // Série
+            2: { cellWidth: 15 },       // Turma
+            3: { cellWidth: 20 },       // Turno
+            4: { cellWidth: 25 },       // Consecutivas
+            5: { cellWidth: 40 },       // Telefone
         },
         alternateRowStyles: {
             fillColor: [245, 245, 245]
