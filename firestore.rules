@@ -3,8 +3,9 @@
  *
  * Core Philosophy:
  * This ruleset prioritizes simplicity and security during the prototyping phase.
- * It allows full read access to all data and enforces owner-only write access for all collections.
- * This strategy enables rapid development and iteration, while preventing unauthorized data modification.
+ * It allows full read access to all data and enforces that writes can only be
+ * performed by authenticated users. This is suitable for an internal tool
+ * where all authenticated users (even anonymous ones) are considered trusted operators.
  *
  * Data Structure:
  * - /students/{studentId}: Stores individual student data.
@@ -12,53 +13,35 @@
  *
  * Key Security Decisions:
  * - Full read access is granted to all users, including unauthenticated users.
- * - Write access (create, update, delete) is restricted to document ownership.
+ * - Write access (create, update, delete) is restricted to any signed-in user.
  * - No listing restrictions are applied during prototyping, allowing all clients to list any collections.
- *
- * Denormalization for Authorization:
- *  - The attendance record stores studentId, studentName, ensino, grade, class and shift in each document.
- *    This eliminates the need to `get()` student data for authorization decisions or to ensure data integrity.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Allows anyone to read student data, but only the owner can create, update, or delete.
+     * @description Allows anyone to read student data, but only signed-in users can write.
      * @path /students/{studentId}
      * @allow (get, list): Any user can read all student profiles.
-     * @allow (create): Only the user with ID matching {studentId} can create a new student.
-     * @allow (update): Only the user with ID matching {studentId} can update their own student profile.
-     * @allow (delete): Only the user with ID matching {studentId} can delete their own student profile.
-     * @deny (create): A user attempts to create a student profile with an ID that doesn't match their own auth ID.
-     * @deny (update): A user attempts to update a student profile with an ID that doesn't match their own auth ID.
-     * @deny (delete): A user attempts to delete a student profile with an ID that doesn't match their own auth ID.
-     * @principle Allows public read access and enforces document ownership for writes.
+     * @allow (create, update, delete): Any signed-in user can manage student records.
+     * @principle Allows public read access and authenticated write access for this internal tool.
      */
     match /students/{studentId} {
       allow get, list: if true;
-      allow create: if isSignedIn();
-      allow update: if isSignedIn();
-      allow delete: if isSignedIn();
+      allow write: if isSignedIn();
     }
 
     /**
-     * @description Allows anyone to read attendance records, but only the owner can create, update, or delete.
+     * @description Allows anyone to read attendance records, but only signed-in users can write.
      * @path /attendance/{attendanceId}
      * @allow (get, list): Any user can read all attendance records.
-     * @allow (create): Any signed-in user can create a new attendance record.
-     * @allow (update): Any signed-in user can update an existing attendance record.
-     * @allow (delete): Any signed-in user can delete an existing attendance record.
-     * @deny (create): A user attempts to create a student profile with an ID that doesn't match their own auth ID.
-     * @deny (update): A user attempts to update a student profile with an ID that doesn't match their own auth ID.
-     * @deny (delete): A user attempts to delete a student profile with an ID that doesn't match their own auth ID.
-     * @principle Allows public read access and enforces document ownership for writes.
+     * @allow (create, update, delete): Any signed-in user can manage attendance records.
+     * @principle Allows public read access and authenticated write access for this internal tool.
      */
     match /attendance/{attendanceId} {
       allow get, list: if true;
-      allow create: if isSignedIn();
-      allow update: if isSignedIn();
-      allow delete: if isSignedIn();
+      allow write: if isSignedIn();
     }
   }
 
