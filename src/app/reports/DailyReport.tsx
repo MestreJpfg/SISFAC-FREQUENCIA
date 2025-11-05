@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useTransition, useEffect, useMemo } from "react";
@@ -10,15 +9,13 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import type { AttendanceRecord } from "@/lib/types";
+import type { AttendanceRecord, Student } from "@/lib/types";
 import { useFirebase, useCollection, useMemoFirebase } from "@/firebase";
-import { collection, getDocs, query, where, DocumentData, Timestamp } from 'firebase/firestore';
+import { collection, getDocs, query, where, DocumentData, Timestamp, Query, orderBy, limit, startAfter } from 'firebase/firestore';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { exportDailyReportToPDF, type DailyAbsenceWithConsecutive } from "@/lib/pdf-export";
 import { EditablePhoneCell } from "./EditablePhoneCell";
-
-type Student = { id: string; name: string; ensino: string; grade: string; class: string; shift: string; telefone?: string };
 
 export function DailyReport() {
     const { firestore } = useFirebase();
@@ -32,95 +29,83 @@ export function DailyReport() {
     const [studentClass, setStudentClass] = useState<string>('all');
     const [shift, setShift] = useState<string>('all');
     
-    const studentsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'students')) : null, [firestore]);
-    const { data: allStudents, isLoading: isLoadingAllStudents } = useCollection<Student>(studentsQuery);
+    // States for filter options, now populated from a smaller, dedicated query
+    const [ensinoOptions, setEnsinoOptions] = useState<string[]>([]);
+    const [gradeOptions, setGradeOptions] = useState<string[]>([]);
+    const [classOptions, setClassOptions] = useState<string[]>([]);
+    const [shiftOptions, setShiftOptions] = useState<string[]>([]);
+    const [isLoadingFilters, setIsLoadingFilters] = useState(true);
 
-    const { ensinos, grades, classes, shifts } = useMemo(() => {
-        if (!allStudents) return { ensinos: [], grades: [], classes: [], shifts: [] };
-
-        const filteredByEnsino = ensino === 'all' ? allStudents : allStudents.filter(s => s.ensino === ensino);
-        const uniqueEnsinos = [...new Set(allStudents.map(s => s.ensino))].sort();
-
-        const filteredByGrade = grade === 'all' ? filteredByEnsino : filteredByEnsino.filter(s => s.grade === grade);
-        const uniqueGrades = [...new Set(filteredByEnsino.map(s => s.grade))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
-
-        const filteredByClass = studentClass === 'all' ? filteredByGrade : filteredByGrade.filter(s => s.class === studentClass);
-        const uniqueClasses = [...new Set(filteredByGrade.map(s => s.class))].sort();
-
-        const uniqueShifts = [...new Set(filteredByClass.map(s => s.shift))].sort();
-
-        return { ensinos: uniqueEnsinos, grades: uniqueGrades, classes: uniqueClasses, shifts: uniqueShifts };
-    }, [allStudents, ensino, grade, studentClass]);
-    
+    // Effect to fetch distinct filter values from the 'students' collection
     useEffect(() => {
-        setGrade('all');
-        setStudentClass('all');
-        setShift('all');
-    }, [ensino]);
-    
-    useEffect(() => {
-        setStudentClass('all');
-        setShift('all');
-    }, [grade]);
+        if (!firestore) return;
 
-    useEffect(() => {
-        setShift('all');
-    }, [studentClass]);
+        const fetchFilters = async () => {
+            setIsLoadingFilters(true);
+            const studentsRef = collection(firestore, 'students');
+            const snapshot = await getDocs(studentsRef);
+            const students = snapshot.docs.map(doc => doc.data() as Student);
+            
+            setEnsinoOptions([...new Set(students.map(s => s.ensino))].sort());
+            setGradeOptions([...new Set(students.map(s => s.grade))].sort((a,b) => a.localeCompare(b, undefined, { numeric: true })));
+            setClassOptions([...new Set(students.map(s => s.class))].sort());
+            setShiftOptions([...new Set(students.map(s => s.shift))].sort());
+            
+            setIsLoadingFilters(false);
+        };
 
-    const getAbsencesForDate = async (targetDate: Date): Promise<AttendanceRecord[]> => {
+        fetchFilters();
+    }, [firestore]);
+
+
+    const getAbsencesForDate = async (targetDate: Date, filters: Record<string, string>): Promise<AttendanceRecord[]> => {
         if (!firestore) return [];
         const dateStart = startOfDay(targetDate);
         const startTimestamp = Timestamp.fromDate(dateStart);
         
-        // Since we only store 'absent' records, this query is now perfect.
-        let q = query(collection(firestore, 'attendance'), 
+        let q: Query<DocumentData> = query(collection(firestore, 'attendance'), 
             where('status', '==', 'absent'),
             where('date', '==', startTimestamp)
         );
+
+        if (filters.ensino && filters.ensino !== 'all') {
+            q = query(q, where('ensino', '==', filters.ensino));
+        }
+        if (filters.grade && filters.grade !== 'all') {
+            q = query(q, where('grade', '==', filters.grade));
+        }
+        if (filters.studentClass && filters.studentClass !== 'all') {
+            q = query(q, where('class', '==', filters.studentClass));
+        }
+        if (filters.shift && filters.shift !== 'all') {
+            q = query(q, where('shift', '==', filters.shift));
+        }
 
         const querySnapshot = await getDocs(q);
         return querySnapshot.docs.map(doc => ({ ...(doc.data() as Omit<AttendanceRecord, 'id'>), id: doc.id }));
     }
 
     const handleSearch = () => {
-        if (!date || !allStudents) return;
+        if (!date) return;
         
         startTransition(async () => {
             setSearchedDate(date);
             
             const prevDay = startOfDay(subDays(date, 1));
+            const currentFilters = { ensino, grade, studentClass, shift };
             
             const [currentAbsencesResult, prevDayAbsencesResult] = await Promise.all([
-                getAbsencesForDate(date),
-                getAbsencesForDate(prevDay)
+                getAbsencesForDate(date, currentFilters),
+                getAbsencesForDate(prevDay, { ...currentFilters, grade: 'all', studentClass: 'all', shift: 'all' }) // For consecutive, check student regardless of class
             ]);
             
-            // Apply local filters
-            let filteredItems = [...currentAbsencesResult];
-            if (ensino !== 'all') {
-                filteredItems = filteredItems.filter(item => item.ensino === ensino);
-            }
-            if (grade !== 'all') {
-                filteredItems = filteredItems.filter(item => item.grade === grade);
-            }
-            if (studentClass !== 'all') {
-                filteredItems = filteredItems.filter(item => item.class === studentClass);
-            }
-            if (shift !== 'all') {
-                filteredItems = filteredItems.filter(item => item.shift === shift);
-            }
-
             const prevDayAbsenceSet = new Set(prevDayAbsencesResult.map(a => a.studentId));
-            const studentsMap = new Map(allStudents.map(s => [s.id, s]));
-
-            const absencesWithDetails: DailyAbsenceWithConsecutive[] = filteredItems.map(absence => {
-                const student = studentsMap.get(absence.studentId);
-                return {
-                    ...absence,
-                    telefone: student?.telefone || absence.telefone || '-', // Fallback
-                    isConsecutive: prevDayAbsenceSet.has(absence.studentId)
-                };
-            });
+            
+            const absencesWithDetails: DailyAbsenceWithConsecutive[] = currentAbsencesResult.map(absence => ({
+                ...absence,
+                telefone: absence.telefone || '-',
+                isConsecutive: prevDayAbsenceSet.has(absence.studentId)
+            }));
             
             setAbsences(absencesWithDetails);
         });
@@ -164,12 +149,13 @@ export function DailyReport() {
         exportDailyReportToPDF(searchedDate, filters, filteredAndSortedAbsences);
     }
     
+    // Automatically search on initial load
     useEffect(() => {
-        if (firestore && allStudents && !searchedDate) {
+        if (firestore && !isLoadingFilters) {
             handleSearch();
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [firestore, allStudents]);
+    }, [firestore, isLoadingFilters]);
 
     return (
         <Card>
@@ -196,47 +182,47 @@ export function DailyReport() {
                         </div>
                          <div className="col-span-2 sm:col-span-1 lg:col-span-1">
                             <Label>Ensino</Label>
-                            <Select value={ensino} onValueChange={setEnsino} disabled={isLoadingAllStudents || ensinos.length === 0}>
+                            <Select value={ensino} onValueChange={setEnsino} disabled={isLoadingFilters || ensinoOptions.length === 0}>
                                 <SelectTrigger><SelectValue placeholder="Ensino" /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">Todos</SelectItem>
-                                    {ensinos.map(e => <SelectItem key={e} value={e}>{e}</SelectItem>)}
+                                    {ensinoOptions.map(e => <SelectItem key={e} value={e}>{e}</SelectItem>)}
                                 </SelectContent>
                             </Select>
                         </div>
                         <div>
                             <Label>Série</Label>
-                            <Select value={grade} onValueChange={setGrade} disabled={isLoadingAllStudents || grades.length === 0}>
+                            <Select value={grade} onValueChange={setGrade} disabled={isLoadingFilters || gradeOptions.length === 0}>
                                 <SelectTrigger><SelectValue placeholder="Série" /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">Todas</SelectItem>
-                                    {grades.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}
+                                    {gradeOptions.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}
                                 </SelectContent>
                             </Select>
                         </div>
                          <div>
                             <Label>Turma</Label>
-                            <Select value={studentClass} onValueChange={setStudentClass} disabled={isLoadingAllStudents || classes.length === 0}>
+                            <Select value={studentClass} onValueChange={setStudentClass} disabled={isLoadingFilters || classOptions.length === 0}>
                                 <SelectTrigger><SelectValue placeholder="Turma" /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">Todas</SelectItem>
-                                    {classes.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                                    {classOptions.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                                 </SelectContent>
                             </Select>
                         </div>
                         <div>
                             <Label>Turno</Label>
-                            <Select value={shift} onValueChange={setShift} disabled={isLoadingAllStudents || shifts.length === 0}>
+                            <Select value={shift} onValueChange={setShift} disabled={isLoadingFilters || shiftOptions.length === 0}>
                                 <SelectTrigger><SelectValue placeholder="Turno" /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">Todos</SelectItem>
-                                    {shifts.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                                    {shiftOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
                                 </SelectContent>
                             </Select>
                         </div>
                     </div>
                      <div className="flex flex-col sm:flex-row gap-2">
-                        <Button onClick={handleSearch} disabled={isPending || !date} className="w-full sm:w-auto">
+                        <Button onClick={handleSearch} disabled={isPending || !date || isLoadingFilters} className="w-full sm:w-auto">
                                 {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
                                 Buscar
                         </Button>
@@ -247,7 +233,7 @@ export function DailyReport() {
                     </div>
                 </div>
 
-                {isPending || (isLoadingAllStudents && !searchedDate) ? (
+                {isPending || (isLoadingFilters && !searchedDate) ? (
                     <div className="flex justify-center items-center h-60">
                         <Loader2 className="h-8 w-8 animate-spin text-primary" />
                     </div>
@@ -265,7 +251,7 @@ export function DailyReport() {
                                             <TableHead>Série</TableHead>
                                             <TableHead>Turma</TableHead>
                                             <TableHead>Turno</TableHead>
-                                            <TableHead>Consecutivas</TableHead>
+                                            <TableHead>Falta Consecutiva?</TableHead>
                                             <TableHead>Telefone</TableHead>
                                         </TableRow>
                                     </TableHeader>
@@ -296,6 +282,3 @@ export function DailyReport() {
         </Card>
     );
 }
-
-
-    

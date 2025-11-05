@@ -1,4 +1,3 @@
-
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { format } from 'date-fns';
@@ -135,7 +134,7 @@ export const exportDailyReportToPDF = (date: Date, filters: Filters, absences: D
 
     const tableStartY = (doc as any).lastAutoTable.finalY + 10;
 
-    const tableColumn = ["Nome do Aluno", "Série", "Turma", "Turno", "Consecutivas", "Telefone"];
+    const tableColumn = ["Nome do Aluno", "Série", "Turma", "Turno", "Falta Consecutiva?", "Telefone"];
     const tableRows: (string | number)[][] = [];
 
     absences.forEach(record => {
@@ -171,8 +170,8 @@ export const exportDailyReportToPDF = (date: Date, filters: Filters, absences: D
             1: { cellWidth: 22 },    // Série
             2: { cellWidth: 15 },    // Turma
             3: { cellWidth: 20 },    // Turno
-            4: { cellWidth: 25 },    // Consecutivas
-            5: { cellWidth: 38 },    // Telefone
+            4: { cellWidth: 28 },    // Consecutivas
+            5: { cellWidth: 35 },    // Telefone
         },
         alternateRowStyles: {
             fillColor: [245, 245, 245]
