@@ -23,6 +23,7 @@ export function ProfileForm() {
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
+        setIsLoading(true);
         const storedUser = localStorage.getItem('userProfile');
         if (storedUser) {
             const parsedUser: UserProfile = JSON.parse(storedUser);
@@ -35,14 +36,16 @@ export function ProfileForm() {
                         // User in localStorage but not in DB, force logout
                         localStorage.removeItem('userProfile');
                         window.dispatchEvent(new CustomEvent('local-storage-changed'));
-                        router.push('/login');
+                        setUserProfile(null);
                     }
                     setIsLoading(false);
                 });
+            } else {
+                 setIsLoading(false);
             }
         } else {
-            // No user in storage, redirect to login
-            router.push('/login');
+            // No user in storage. Don't redirect, just show loading/error state.
+            setUserProfile(null);
             setIsLoading(false);
         }
     }, [firestore, router]);
@@ -80,6 +83,7 @@ export function ProfileForm() {
     };
     
     const getInitials = (name: string) => {
+        if (!name) return "";
         const names = name.split(' ');
         if (names.length > 1) {
             return `${names[0][0]}${names[names.length - 1][0]}`.toUpperCase();
@@ -98,7 +102,7 @@ export function ProfileForm() {
                 <TriangleAlert className="h-4 w-4" />
                 <AlertTitle>Nenhum Perfil Encontrado</AlertTitle>
                 <AlertDescription>
-                    Você precisa estar logado para ver esta página.
+                    Não foi possível carregar os dados do perfil. Por favor, tente fazer o login novamente.
                 </AlertDescription>
             </Alert>
         )
