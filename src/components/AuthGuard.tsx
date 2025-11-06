@@ -40,6 +40,15 @@ function AppStructure({ children }: { children: ReactNode }) {
     )
 }
 
+function FullScreenLoader() {
+    return (
+        <div className="flex justify-center items-center h-screen w-screen">
+            <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        </div>
+    );
+}
+
+
 export function AuthGuard({ children }: AuthGuardProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -55,96 +64,74 @@ export function AuthGuard({ children }: AuthGuardProps) {
 
   useEffect(() => {
     if (isUserLoading) {
-      return; // Aguarde a verificação inicial de autenticação terminar
+      return; 
     }
 
     const isPublicPath = PUBLIC_PATHS.includes(pathname);
 
-    if (user) {
-      // Se o usuário está logado e na página de login, redirecione para a home.
-      if (isPublicPath) {
-        router.push('/');
-        return;
-      }
-
-      // Se o perfil está carregando, não faça nada ainda. O return do `isLoading` abaixo cuidará disso.
-      if (isProfileLoading) {
-        return;
-      }
-
-      // Se o perfil não existe ou o usuário não está ativo, deslogue e mande para o login.
-      if (!userProfile || !userProfile.isActive) {
-        router.push('/login?message=account-disabled');
-        return;
-      }
-
-      // Verificação de permissão baseada na rota
-      const basePath = `/${pathname.split('/')[1]}`;
-      const allowedRoles = PATH_ROLES[basePath];
-      if (allowedRoles && !allowedRoles.includes(userProfile.role)) {
-        router.push('/?error=not-authorized'); // Redireciona para home com erro
-      }
-
-    } else {
-      // Se não há usuário e a página não é pública, redirecione para o login.
-      if (!isPublicPath) {
-        router.push('/login');
-      }
+    if (!user && !isPublicPath) {
+      router.push('/login');
     }
-  }, [user, userProfile, isUserLoading, isProfileLoading, pathname, router]);
+
+    if (user && isPublicPath) {
+      router.push('/');
+    }
+
+  }, [isUserLoading, user, pathname, router]);
 
   const isLoading = isUserLoading || (user && isProfileLoading);
   const isPublicPath = PUBLIC_PATHS.includes(pathname);
 
-  if (isPublicPath) {
-    // Se o usuário já está logado, mostra um loader enquanto redireciona.
-    if(user) {
-         return (
-            <div className="flex justify-center items-center h-screen w-screen">
-                <Loader2 className="h-12 w-12 animate-spin text-primary" />
-            </div>
-        );
-    }
-    // Se não, mostra a página pública (login)
+  if (isLoading && !isPublicPath) {
+    return <FullScreenLoader />;
+  }
+
+  if (!user && isPublicPath) {
     return <>{children}</>;
   }
   
-  if (isLoading) {
-    return (
-      <div className="flex justify-center items-center h-screen w-screen">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
-      </div>
-    );
-  }
-
-  // Se chegou até aqui, o usuário está logado, o perfil carregou, e ele não está em uma página pública
-  // Agora, fazemos a verificação final de permissão para renderizar a página ou a mensagem de erro.
   if (user && userProfile) {
-     const basePath = `/${pathname.split('/')[1]}`;
-     const allowedRoles = PATH_ROLES[basePath];
-     if (allowedRoles && !allowedRoles.includes(userProfile.role)) {
-         return (
-             <AppStructure>
-                <div className="flex justify-center items-center h-full">
-                    <Alert variant="destructive" className="max-w-md">
-                        <ShieldBan className="h-4 w-4" />
-                        <AlertTitle>Acesso Negado</AlertTitle>
-                        <AlertDescription>
-                            Você não tem permissão para acessar esta página.
-                        </AlertDescription>
-                    </Alert>
-                </div>
-             </AppStructure>
-         );
-     }
-  } else if (!user) {
-    // Se por algum motivo o usuário se tornou nulo, mostre o loader para o useEffect redirecionar
-     return (
-      <div className="flex justify-center items-center h-screen w-screen">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
-      </div>
-    );
+    const basePath = `/${pathname.split('/')[1]}`;
+    const allowedRoles = PATH_ROLES[basePath];
+
+    if (!userProfile.isActive) {
+         router.push('/login?message=account-disabled');
+         return <FullScreenLoader />;
+    }
+
+    if (allowedRoles && !allowedRoles.includes(userProfile.role)) {
+      return (
+        <AppStructure>
+          <div className="flex justify-center items-center h-full">
+            <Alert variant="destructive" className="max-w-md">
+              <ShieldBan className="h-4 w-4" />
+              <AlertTitle>Acesso Negado</AlertTitle>
+              <AlertDescription>
+                Você não tem permissão para acessar esta página.
+              </AlertDescription>
+            </Alert>
+          </div>
+        </AppStructure>
+      );
+    }
   }
 
-  return <AppStructure>{children}</AppStructure>;
+  // If user is logged in and path is not public, render the protected content
+  if (user && !isPublicPath) {
+    return <AppStructure>{children}</AppStructure>;
+  }
+
+  // If we are on a public path and the user is not yet loaded, show a loader
+  if (isPublicPath && isUserLoading) {
+    return <FullScreenLoader />;
+  }
+
+  // If we are on a public path, and we have a user, the useEffect will redirect.
+  // In the meantime show a loader.
+  if (isPublicPath && user) {
+      return <FullScreenLoader />;
+  }
+  
+  // Default case for public paths when no user is logged in
+  return <>{children}</>;
 }
