@@ -55,7 +55,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
 
   useEffect(() => {
     // Wait until loading is complete
-    if (isUserLoading || (user && isProfileLoading)) {
+    if (isUserLoading) {
       return;
     }
 
@@ -141,6 +141,16 @@ export function AuthGuard({ children }: AuthGuardProps) {
   // Don't show header/footer on public pages like login
   if (isPublicPath) {
     return <>{children}</>;
+  }
+
+  // If user exists, but profile is still loading, show a loading state
+  // This prevents content from flashing before roles are checked
+  if (user && isProfileLoading) {
+      return (
+          <div className="flex justify-center items-center h-screen w-screen">
+              <Loader2 className="h-12 w-12 animate-spin text-primary" />
+          </div>
+      );
   }
 
   return <AppStructure>{children}</AppStructure>;
