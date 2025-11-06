@@ -1,7 +1,8 @@
+
 "use client";
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ClipboardCheck, Users, FileUp, FileText, Menu, UserCog, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
@@ -36,10 +37,20 @@ export function Header() {
     const { data: userProfile } = useDoc<UserProfile>(userProfileRef);
 
     const handleLogout = async () => {
+        if (!auth) return;
         await signOut(auth);
         router.push('/login');
     };
     
+    // TEMPORARY: Force logout on component mount to allow user to re-register
+    useEffect(() => {
+        if (auth && user) {
+            handleLogout();
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [auth, user]);
+
+
     const canViewLink = (linkRoles: string[]) => {
         if (isUserLoading || !userProfile) return false;
         return linkRoles.includes(userProfile.role);
