@@ -5,11 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { FileUp, Users, FileText, UserCog } from "lucide-react";
 import Link from "next/link";
-import { useUser, useDoc, useMemoFirebase } from '@/firebase';
-import type { UserProfile } from '@/lib/types';
-import { doc } from 'firebase/firestore';
-import { useFirebase } from '@/firebase';
 import { Skeleton } from "@/components/ui/skeleton";
+import type { UserProfile } from '@/lib/types';
 
 const allFeatures = [
   {
@@ -46,20 +43,14 @@ const allFeatures = [
   },
 ];
 
-export default function Home() {
-  const { user } = useUser();
-  const { firestore } = useFirebase();
+// O perfil do usuário agora é passado como prop pelo AuthGuard
+export default function Home({ userProfile }: { userProfile?: UserProfile | null }) {
 
-  const userProfileRef = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
-    return doc(firestore, 'users', user.uid);
-  }, [firestore, user]);
+  const isLoading = !userProfile;
 
-  const { data: userProfile, isLoading } = useDoc<UserProfile>(userProfileRef);
-
-  const visibleFeatures = allFeatures.filter(feature => 
-    userProfile && feature.roles.includes(userProfile.role)
-  );
+  const visibleFeatures = userProfile 
+    ? allFeatures.filter(feature => feature.roles.includes(userProfile.role))
+    : [];
 
   return (
     <div className="flex flex-col items-center text-center space-y-8">
@@ -68,7 +59,7 @@ export default function Home() {
           REGISTRO DE FREQUÊNCIA
         </h1>
         <p className="mt-6 text-lg max-w-2xl text-muted-foreground">
-          {userProfile ? `Bem-vindo(a), ${userProfile.email}! Selecione uma das opções abaixo para começar.` : 'Carregando...'}
+          {isLoading ? 'Carregando...' : `Bem-vindo(a), ${userProfile?.email}! Selecione uma das opções abaixo para começar.`}
         </p>
       </div>
 

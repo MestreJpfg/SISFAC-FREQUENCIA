@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, type ReactNode, cloneElement, ReactElement } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useUser, useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
@@ -11,7 +11,7 @@ import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { Header } from './Header';
 
 interface AuthGuardProps {
-  children: ReactNode;
+  children: ReactElement; // Now expecting a single ReactElement child
 }
 
 const PUBLIC_PATHS = ['/login'];
@@ -42,12 +42,11 @@ function AppStructure({ children }: { children: ReactNode }) {
 
 function FullScreenLoader() {
     return (
-        <div className="flex justify-center items-center h-screen w-screen">
+        <div className="flex justify-center items-center h-screen w-screen bg-background">
             <Loader2 className="h-12 w-12 animate-spin text-primary" />
         </div>
     );
 }
-
 
 export function AuthGuard({ children }: AuthGuardProps) {
   const router = useRouter();
@@ -62,12 +61,12 @@ export function AuthGuard({ children }: AuthGuardProps) {
   
   const { data: userProfile, isLoading: isProfileLoading } = useDoc<UserProfile>(userProfileRef);
 
+  const isPublicPath = PUBLIC_PATHS.includes(pathname);
+
   useEffect(() => {
     if (isUserLoading) {
       return; 
     }
-
-    const isPublicPath = PUBLIC_PATHS.includes(pathname);
 
     if (!user && !isPublicPath) {
       router.push('/login');
@@ -77,27 +76,34 @@ export function AuthGuard({ children }: AuthGuardProps) {
       router.push('/');
     }
 
-  }, [isUserLoading, user, pathname, router]);
+  }, [isUserLoading, user, pathname, router, isPublicPath]);
 
-  const isLoading = isUserLoading || (user && isProfileLoading);
-  const isPublicPath = PUBLIC_PATHS.includes(pathname);
+  const isLoading = isUserLoading || (user && !isPublicPath && isProfileLoading);
 
-  if (isLoading && !isPublicPath) {
+  if (isLoading) {
     return <FullScreenLoader />;
   }
-
-  if (!user && isPublicPath) {
-    return <>{children}</>;
-  }
   
-  if (user && userProfile) {
-    const basePath = `/${pathname.split('/')[1]}`;
-    const allowedRoles = PATH_ROLES[basePath];
+  if (isPublicPath) {
+      if (!user) {
+        return <>{children}</>;
+      }
+      // If user is logged in on a public path, the useEffect will redirect.
+      // Show loader in the meantime.
+      return <FullScreenLoader />;
+  }
 
+  // --- From here, we are on a protected path with an authenticated user ---
+
+  if (user && userProfile) {
     if (!userProfile.isActive) {
+         // This should be handled by the useEffect, but as a fallback:
          router.push('/login?message=account-disabled');
          return <FullScreenLoader />;
     }
+
+    const basePath = `/${pathname.split('/')[1]}`;
+    const allowedRoles = PATH_ROLES[basePath];
 
     if (allowedRoles && !allowedRoles.includes(userProfile.role)) {
       return (
@@ -114,24 +120,26 @@ export function AuthGuard({ children }: AuthGuardProps) {
         </AppStructure>
       );
     }
-  }
+     // If access is granted, render the structure and clone the children with userProfile prop
+    return (
+        <AppStructure>
+            {cloneElement(children, { userProfile })}
+        </AppStructure>
+    );
 
-  // If user is logged in and path is not public, render the protected content
-  if (user && !isPublicPath) {
-    return <AppStructure>{children}</AppStructure>;
-  }
-
-  // If we are on a public path and the user is not yet loaded, show a loader
-  if (isPublicPath && isUserLoading) {
-    return <FullScreenLoader />;
-  }
-
-  // If we are on a public path, and we have a user, the useEffect will redirect.
-  // In the meantime show a loader.
-  if (isPublicPath && user) {
-      return <FullScreenLoader />;
   }
   
-  // Default case for public paths when no user is logged in
-  return <>{children}</>;
+  // If user exists but profile is still loading (or doesn't exist), show loader
+   if (user && !userProfile) {
+    return <FullScreenLoader />;
+  }
+  
+  // Fallback for redirecting unauthenticated users from protected paths
+  if (!user && !isPublicPath) {
+      router.push('/login');
+      return <FullScreenLoader/>
+  }
+
+  // This should ideally not be reached, but it's a safe fallback.
+  return <FullScreenLoader />;
 }
