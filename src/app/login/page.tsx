@@ -40,6 +40,7 @@ export default function LoginPage() {
     switch (error.code) {
       case 'auth/user-not-found':
       case 'auth/wrong-password':
+      case 'auth/invalid-credential':
         description = 'Email ou senha inválidos.';
         break;
       case 'auth/email-already-in-use':
@@ -94,14 +95,14 @@ export default function LoginPage() {
           uid: user.uid,
           email: user.email,
           role: isFirstUser ? 'admin' : 'user', // Default role 'user', admin for first user
-          isActive: true,
+          isActive: isFirstUser, // Admin user is active by default
         });
       }
 
       toast({
         title: 'Cadastro realizado com sucesso!',
         description:
-          'Você foi cadastrado. Um administrador precisa ativar sua conta.',
+          'Você foi cadastrado. Um administrador precisa ativar sua conta para você acessar.',
       });
       setActiveTab('login'); // Switch to login tab after sign up
     } catch (error) {
