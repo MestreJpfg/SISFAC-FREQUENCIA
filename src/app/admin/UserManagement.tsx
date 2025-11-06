@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useMemo } from 'react';
@@ -15,8 +16,14 @@ import { FirestorePermissionError } from '@/firebase/errors';
 type UserProfileWithId = UserProfile & { id: string };
 
 export function UserManagement() {
-    const { firestore, user } = useFirebase();
+    const { firestore } = useFirebase();
     const { toast } = useToast();
+
+    // Note: We are not getting the current user from a hook anymore.
+    // Disabling self-edit functionality for simplicity with the new auth system.
+    const currentUserProfileString = typeof window !== 'undefined' ? localStorage.getItem('userProfile') : null;
+    const currentUser = currentUserProfileString ? JSON.parse(currentUserProfileString) : null;
+
 
     const usersQuery = useMemoFirebase(() => {
         if (!firestore) return null;
@@ -31,42 +38,44 @@ export function UserManagement() {
     }, [users]);
 
 
-    const handleRoleChange = async (userId: string, newRole: 'admin' | 'superUser' | 'user') => {
+    const handleRoleChange = (userId: string, newRole: 'Administrador' | 'Super Usuario' | 'Usuario') => {
         if (!firestore) return;
 
         const userRef = doc(firestore, 'users', userId);
-        try {
-            await updateDoc(userRef, { role: newRole });
-            toast({ title: "Sucesso", description: "Nível de acesso do usuário atualizado." });
-        } catch (error) {
-            console.error("Failed to update role:", error);
-            const permissionError = new FirestorePermissionError({
-                path: userRef.path,
-                operation: 'update',
-                requestResourceData: { role: newRole }
+        updateDoc(userRef, { role: newRole })
+            .then(() => {
+                 toast({ title: "Sucesso", description: "Nível de acesso do usuário atualizado." });
+            })
+            .catch((error) => {
+                 console.error("Failed to update role:", error);
+                const permissionError = new FirestorePermissionError({
+                    path: userRef.path,
+                    operation: 'update',
+                    requestResourceData: { role: newRole }
+                });
+                errorEmitter.emit('permission-error', permissionError);
             });
-            errorEmitter.emit('permission-error', permissionError);
-        }
     };
 
-    const handleStatusChange = async (userId: string, newStatus: boolean) => {
+    const handleStatusChange = (userId: string, newStatus: boolean) => {
         if (!firestore) return;
         const userRef = doc(firestore, 'users', userId);
-        try {
-            await updateDoc(userRef, { isActive: newStatus });
-            toast({ title: "Sucesso", description: "Status do usuário atualizado." });
-        } catch (error) {
-            console.error("Failed to update status:", error);
-            const permissionError = new FirestorePermissionError({
-                path: userRef.path,
-                operation: 'update',
-                requestResourceData: { isActive: newStatus }
+        updateDoc(userRef, { isActive: newStatus })
+            .then(() => {
+                 toast({ title: "Sucesso", description: "Status do usuário atualizado." });
+            })
+            .catch((error) => {
+                console.error("Failed to update status:", error);
+                const permissionError = new FirestorePermissionError({
+                    path: userRef.path,
+                    operation: 'update',
+                    requestResourceData: { isActive: newStatus }
+                });
+                errorEmitter.emit('permission-error', permissionError);
             });
-            errorEmitter.emit('permission-error', permissionError);
-        }
     };
-
-    const isCurrentUser = (uid: string) => user?.uid === uid;
+    
+    const isCurrentUser = (uid: string) => currentUser?.uid === uid;
 
     if (isLoading) {
         return (
@@ -93,16 +102,16 @@ export function UserManagement() {
                             <TableCell>
                                 <Select
                                     value={profile.role}
-                                    onValueChange={(value: 'admin' | 'superUser' | 'user') => handleRoleChange(profile.id, value)}
+                                    onValueChange={(value: 'Administrador' | 'Super Usuario' | 'Usuario') => handleRoleChange(profile.id, value)}
                                     disabled={isCurrentUser(profile.uid)}
                                 >
                                     <SelectTrigger className="w-[180px]">
                                         <SelectValue placeholder="Nível de Acesso" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="admin">Administrador</SelectItem>
-                                        <SelectItem value="superUser">Super Usuário</SelectItem>
-                                        <SelectItem value="user">Usuário</SelectItem>
+                                        <SelectItem value="Administrador">Administrador</SelectItem>
+                                        <SelectItem value="Super Usuario">Super Usuário</SelectItem>
+                                        <SelectItem value="Usuario">Usuário</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </TableCell>

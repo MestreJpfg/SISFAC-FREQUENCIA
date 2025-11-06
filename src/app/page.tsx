@@ -7,6 +7,7 @@ import { FileUp, Users, FileText, UserCog } from "lucide-react";
 import Link from "next/link";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { UserProfile } from '@/lib/types';
+import { useEffect, useState } from "react";
 
 const allFeatures = [
   {
@@ -15,7 +16,7 @@ const allFeatures = [
     icon: <Users className="h-8 w-8 text-primary" />,
     href: "/attendance",
     cta: "Registrar Frequência",
-    roles: ['admin', 'superUser']
+    roles: ['Administrador', 'Super Usuario']
   },
   {
     title: "Gerar Relatórios",
@@ -23,7 +24,7 @@ const allFeatures = [
     icon: <FileText className="h-8 w-8 text-primary" />,
     href: "/reports",
     cta: "Ver Relatórios",
-    roles: ['admin', 'superUser', 'user']
+    roles: ['Administrador', 'Super Usuario', 'Usuario']
   },
   {
     title: "Importar Alunos",
@@ -31,7 +32,7 @@ const allFeatures = [
     icon: <FileUp className="h-8 w-8 text-primary" />,
     href: "/import",
     cta: "Começar Importação",
-    roles: ['admin']
+    roles: ['Administrador']
   },
   {
     title: "Gerenciar Usuários",
@@ -39,11 +40,10 @@ const allFeatures = [
     icon: <UserCog className="h-8 w-8 text-primary" />,
     href: "/admin",
     cta: "Gerenciar",
-    roles: ['admin']
+    roles: ['Administrador']
   },
 ];
 
-// O perfil do usuário agora é passado como prop pelo AuthGuard
 export default function Home({ userProfile }: { userProfile?: UserProfile | null }) {
 
   const isLoading = !userProfile;

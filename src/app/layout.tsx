@@ -3,9 +3,9 @@ import { PT_Sans } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { FirebaseClientProvider } from "@/firebase/client-provider";
-import { AuthGuard } from "@/components/AuthGuard";
 import { cn } from "@/lib/utils";
-import { ReactElement } from "react";
+import { ReactElement, Suspense } from "react";
+import { AppController } from "@/components/AppController";
 
 const ptSans = PT_Sans({
   subsets: ["latin"],
@@ -21,15 +21,17 @@ export const metadata: Metadata = {
 export default function RootLayout({
   children,
 }: Readonly<{
-  children: ReactElement; // Expect a single ReactElement
+  children: ReactElement;
 }>) {
   return (
     <html lang="pt-BR" suppressHydrationWarning>
       <body className={cn("font-sans antialiased", ptSans.variable)}>
         <FirebaseClientProvider>
-          <AuthGuard>
-            {children}
-          </AuthGuard>
+          <Suspense fallback={<div>Carregando...</div>}>
+            <AppController>
+              {children}
+            </AppController>
+          </Suspense>
         </FirebaseClientProvider>
         <Toaster />
       </body>

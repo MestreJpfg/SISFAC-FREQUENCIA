@@ -101,36 +101,36 @@
     },
     "UserProfile": {
         "title": "User Profile",
-        "description": "Stores user-specific data, including their role for role-based access control.",
+        "description": "Stores user-specific data for the custom login system.",
         "type": "object",
         "properties": {
             "uid": {
                 "type": "string",
-                "description": "The user's unique ID from Firebase Authentication."
+                "description": "The user's unique ID from Firestore document ID."
             },
             "email": {
                 "type": "string",
-                "description": "The user's email address."
+                "description": "The user's email address, used for login."
+            },
+            "password": {
+                "type": "string",
+                "description": "The user's password, used for login. This will be stored in plain text."
             },
             "role": {
                 "type": "string",
                 "description": "The role assigned to the user.",
-                "enum": ["admin", "superUser", "user"]
+                "enum": ["Administrador", "Super Usuario", "Usuario"]
             },
             "isActive": {
                 "type": "boolean",
                 "description": "Determines if the user's account is active and can access the system."
             }
         },
-        "required": ["uid", "email", "role", "isActive"]
+        "required": ["uid", "email", "password", "role", "isActive"]
     }
   },
   "auth": {
-    "providers": [
-      "email",
-      "google",
-      "phone"
-    ]
+    "providers": []
   },
   "firestore": {
     "/students/{studentId}": {
@@ -149,7 +149,7 @@
       "schema": {
         "$ref": "#/entities/UserProfile"
       },
-      "description": "Stores user profile information, including their access role. The document ID must match the Firebase Auth UID."
+      "description": "Stores user profile information for the custom login system. The document ID is the user's UID."
     }
   }
 }

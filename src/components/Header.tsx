@@ -2,48 +2,34 @@
 "use client";
 
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { ClipboardCheck, Users, FileUp, FileText, Menu, UserCog, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
 import { usePathname, useRouter } from 'next/navigation';
-import { useAuth, useUser, useDoc, useMemoFirebase } from '@/firebase';
-import { signOut } from 'firebase/auth';
 import type { UserProfile } from '@/lib/types';
-import { doc } from 'firebase/firestore';
-import { useFirebase } from '@/firebase';
 
 
-const navLinks = [
-    { href: "/import", label: "Importar Dados", icon: FileUp, roles: ['admin'] },
-    { href: "/attendance", label: "Registrar Frequência", icon: Users, roles: ['admin', 'superUser'] },
-    { href: "/reports", label: "Relatórios", icon: FileText, roles: ['admin', 'superUser', 'user'] },
-    { href: "/admin", label: "Admin", icon: UserCog, roles: ['admin'] },
+const navLinks: { href: string; label: string; icon: React.ElementType; roles: UserProfile['role'][] }[] = [
+    { href: "/import", label: "Importar Dados", icon: FileUp, roles: ['Administrador'] },
+    { href: "/attendance", label: "Registrar Frequência", icon: Users, roles: ['Administrador', 'Super Usuario'] },
+    { href: "/reports", label: "Relatórios", icon: FileText, roles: ['Administrador', 'Super Usuario', 'Usuario'] },
+    { href: "/admin", label: "Admin", icon: UserCog, roles: ['Administrador'] },
 ];
 
-export function Header() {
+export function Header({ userProfile }: { userProfile: UserProfile | null }) {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const pathname = usePathname();
     const router = useRouter();
-    const { auth, firestore } = useFirebase();
-    const { user, isUserLoading } = useUser();
 
-    const userProfileRef = useMemoFirebase(() => {
-        if (!firestore || !user) return null;
-        return doc(firestore, 'users', user.uid);
-    }, [firestore, user]);
-
-    const { data: userProfile } = useDoc<UserProfile>(userProfileRef);
-
-    const handleLogout = async () => {
-        if (!auth) return;
-        await signOut(auth);
+    const handleLogout = () => {
+        localStorage.removeItem('userProfile');
         router.push('/login');
     };
     
     const canViewLink = (linkRoles: string[]) => {
-        if (isUserLoading || !userProfile) return false;
+        if (!userProfile) return false;
         return linkRoles.includes(userProfile.role);
     }
 
