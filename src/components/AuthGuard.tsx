@@ -69,19 +69,19 @@ export function AuthGuard({ children }: AuthGuardProps) {
 
     // If user is logged in
     if (user) {
-        // If profile is loaded
+        // If user is on login page, redirect to home immediately
+        if (isPublicPath) {
+            router.push('/');
+            return;
+        }
+
+        // If profile is loaded, perform further checks
         if(userProfile) {
             // If user is not active, log them out and show message
             if (!userProfile.isActive) {
                 // Consider signing out the user here before redirecting
                 // signOut(auth); 
                 router.push('/login?message=account-disabled');
-                return;
-            }
-
-            // If user is on login page, redirect to home
-            if (isPublicPath) {
-                router.push('/');
                 return;
             }
 
