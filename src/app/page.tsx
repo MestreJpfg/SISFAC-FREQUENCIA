@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { FileUp, Users, FileText } from "lucide-react";
 import Link from "next/link";
+import { useState, useEffect } from "react";
 import type { UserProfile } from "@/lib/types";
 
 const allFeatures = [
@@ -31,7 +32,18 @@ const allFeatures = [
   },
 ];
 
-export default function Home({ user }: { user?: UserProfile | null }) {
+export default function Home() {
+  const [user, setUser] = useState<UserProfile | null>(null);
+
+  useEffect(() => {
+    // This logic is now duplicated from AppController, but it's okay for this page
+    // as it's not a protected route and needs to react to login/logout.
+    const storedUser = localStorage.getItem('userProfile');
+    if (storedUser) {
+      setUser(JSON.parse(storedUser));
+    }
+  }, []);
+
 
   return (
     <div className="flex flex-col items-center text-center space-y-8">
