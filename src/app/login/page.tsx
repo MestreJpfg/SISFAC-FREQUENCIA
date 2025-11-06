@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth, useFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import {
@@ -55,21 +55,45 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('login');
 
+  const recaptchaContainerRef = useRef<HTMLDivElement>(null);
+
+
   useEffect(() => {
-    if (!auth) return;
-    if (!window.recaptchaVerifier) {
-      window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-        'size': 'invisible',
-        'callback': (response: any) => {
-          // reCAPTCHA solved, allow signInWithPhoneNumber.
+    if (!auth || activeTab !== 'phone') {
+        if (window.recaptchaVerifier) {
+            // "Unmount" the verifier
+            window.recaptchaVerifier.render().then(widgetId => {
+                if (window.grecaptcha) {
+                    window.grecaptcha.reset(widgetId);
+                }
+            });
+             window.recaptchaVerifier = undefined;
         }
-      });
+        return;
     }
 
-    return () => {
-        window.recaptchaVerifier?.clear();
+    if (!window.recaptchaVerifier && recaptchaContainerRef.current) {
+        const verifier = new RecaptchaVerifier(auth, recaptchaContainerRef.current, {
+            'size': 'invisible',
+            'callback': () => { /* reCAPTCHA solved */ }
+        });
+        window.recaptchaVerifier = verifier;
+        verifier.render(); // Explicitly render the verifier
     }
-  }, [auth]);
+
+    // Cleanup on component unmount
+    return () => {
+        if (window.recaptchaVerifier) {
+            // Using render and reset is a safer way to clean up than .clear() in some Next.js scenarios
+            window.recaptchaVerifier.render().then(widgetId => {
+                if (window.grecaptcha) {
+                    window.grecaptcha.reset(widgetId);
+                }
+            });
+             window.recaptchaVerifier = undefined;
+        }
+    };
+}, [auth, activeTab]);
 
 
   const handleAuthError = (error: AuthError) => {
@@ -190,10 +214,13 @@ export default function LoginPage() {
 
   // --- Phone Auth Logic ---
   const handlePhoneSignIn = async () => {
-    if (!auth) return;
+    if (!auth || !window.recaptchaVerifier) {
+      toast({ variant: 'destructive', title: 'Erro', description: 'O verificador reCAPTCHA não está pronto.'});
+      return;
+    }
     setIsLoading(true);
     try {
-        const verifier = window.recaptchaVerifier!;
+        const verifier = window.recaptchaVerifier;
         // Use E.164 format for phone number
         const formattedPhoneNumber = `+55${phoneNumber.replace(/\D/g, '')}`;
         const confirmationResult = await signInWithPhoneNumber(auth, formattedPhoneNumber, verifier);
@@ -202,6 +229,12 @@ export default function LoginPage() {
         toast({ title: 'Código enviado', description: 'Um código de verificação foi enviado para o seu celular.'});
     } catch (error) {
         handleAuthError(error as AuthError);
+        // Reset reCAPTCHA on error
+        if (window.grecaptcha && window.recaptchaVerifier) {
+            window.recaptchaVerifier.render().then(widgetId => {
+                window.grecaptcha.reset(widgetId);
+            });
+        }
     } finally {
         setIsLoading(false);
     }
@@ -228,7 +261,7 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4">
-       <div id="recaptcha-container"></div>
+       <div ref={recaptchaContainerRef}></div>
        <div className="w-full max-w-md">
         <div className="flex justify-center mb-6">
             <KeyRound className="h-12 w-12 text-primary"/>
