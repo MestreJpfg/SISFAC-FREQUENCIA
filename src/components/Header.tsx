@@ -1,13 +1,23 @@
-
 "use client";
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { ClipboardCheck, Users, FileUp, FileText, Menu, UserCog } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { ClipboardCheck, Users, FileUp, FileText, Menu, UserCog, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
 import { usePathname } from 'next/navigation';
+import type { UserProfile } from '@/lib/types';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 const navLinks: { href: string; label: string; icon: React.ElementType }[] = [
     { href: "/import", label: "Importar Dados", icon: FileUp },
@@ -15,9 +25,25 @@ const navLinks: { href: string; label: string; icon: React.ElementType }[] = [
     { href: "/reports", label: "Relatórios", icon: FileText },
 ];
 
-export function Header() {
+export function Header({ user }: { user: UserProfile | null }) {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const pathname = usePathname();
+    const router = useRouter();
+
+    const handleLogout = () => {
+        localStorage.removeItem('userProfile');
+        // Dispatch a custom event to notify AppController of the change
+        window.dispatchEvent(new CustomEvent('local-storage-changed'));
+        router.push('/login');
+    };
+
+    const getInitials = (name: string) => {
+        const names = name.split(' ');
+        if (names.length > 1) {
+            return `${names[0][0]}${names[names.length - 1][0]}`.toUpperCase();
+        }
+        return name.substring(0, 2).toUpperCase();
+    }
 
     return (
         <header className="bg-card border-b sticky top-0 z-30">
@@ -38,39 +64,77 @@ export function Header() {
                         ))}
                     </nav>
                     
-                    <div className="md:hidden">
-                        <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
-                            <SheetTrigger asChild>
-                                <Button variant="ghost" size="icon">
-                                    <Menu className="h-6 w-6" />
-                                    <span className="sr-only">Abrir menu</span>
-                                </Button>
-                            </SheetTrigger>
-                            <SheetContent side="right" className="p-0">
-                                <div className="flex flex-col h-full">
-                                    <div className="flex items-center p-4 border-b">
-                                         <Link href="/" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-3 text-lg font-bold font-headline text-foreground">
-                                            <ClipboardCheck className="h-7 w-7 text-primary" />
-                                            <span>SISFAC - FREQUÊNCIA</span>
+                    <div className="flex items-center gap-4">
+                        {user ? (
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" className="relative h-10 w-10 rounded-full">
+                                        <Avatar>
+                                            <AvatarImage src={user.avatarUrl} alt={user.username} />
+                                            <AvatarFallback>{getInitials(user.fullName || user.username)}</AvatarFallback>
+                                        </Avatar>
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent className="w-56" align="end" forceMount>
+                                    <DropdownMenuLabel className="font-normal">
+                                        <div className="flex flex-col space-y-1">
+                                            <p className="text-sm font-medium leading-none">{user.fullName || user.username}</p>
+                                            <p className="text-xs leading-none text-muted-foreground">{user.username}</p>
+                                        </div>
+                                    </DropdownMenuLabel>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem asChild className="cursor-pointer">
+                                        <Link href="/profile">
+                                            <UserCog className="mr-2 h-4 w-4" />
+                                            <span>Perfil</span>
                                         </Link>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem onClick={handleLogout} className="cursor-pointer">
+                                        <LogOut className="mr-2 h-4 w-4" />
+                                        <span>Sair</span>
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        ) : (
+                             <Button asChild variant="default">
+                                <Link href="/login">Entrar</Link>
+                            </Button>
+                        )}
+                        <div className="md:hidden">
+                            <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
+                                <SheetTrigger asChild>
+                                    <Button variant="ghost" size="icon">
+                                        <Menu className="h-6 w-6" />
+                                        <span className="sr-only">Abrir menu</span>
+                                    </Button>
+                                </SheetTrigger>
+                                <SheetContent side="right" className="p-0">
+                                    <div className="flex flex-col h-full">
+                                        <div className="flex items-center p-4 border-b">
+                                            <Link href="/" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-3 text-lg font-bold font-headline text-foreground">
+                                                <ClipboardCheck className="h-7 w-7 text-primary" />
+                                                <span>SISFAC - FREQUÊNCIA</span>
+                                            </Link>
+                                        </div>
+                                        <nav className="flex-grow p-4">
+                                            <ul className="space-y-2">
+                                                {navLinks.map((link) => (
+                                                    <li key={link.href}>
+                                                        <Button asChild variant="ghost" className={cn("w-full justify-start text-lg h-12", pathname === link.href && "text-foreground bg-accent/50")} onClick={() => setIsMobileMenuOpen(false)}>
+                                                            <Link href={link.href} className="flex items-center gap-3">
+                                                                <link.icon className="h-5 w-5" />
+                                                                {link.label}
+                                                            </Link>
+                                                        </Button>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </nav>
                                     </div>
-                                    <nav className="flex-grow p-4">
-                                        <ul className="space-y-2">
-                                            {navLinks.map((link) => (
-                                                <li key={link.href}>
-                                                    <Button asChild variant="ghost" className={cn("w-full justify-start text-lg h-12", pathname === link.href && "text-foreground bg-accent/50")} onClick={() => setIsMobileMenuOpen(false)}>
-                                                        <Link href={link.href} className="flex items-center gap-3">
-                                                            <link.icon className="h-5 w-5" />
-                                                            {link.label}
-                                                        </Link>
-                                                    </Button>
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    </nav>
-                                </div>
-                            </SheetContent>
-                        </Sheet>
+                                </SheetContent>
+                            </Sheet>
+                        </div>
                     </div>
                 </div>
             </div>

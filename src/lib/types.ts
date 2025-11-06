@@ -22,3 +22,14 @@ export interface AttendanceRecord {
   ensino: string;
   telefone?: string;
 }
+
+// User profile for personalization
+export interface UserProfile {
+  id: string;
+  username: string;
+  password?: string; // Should not be stored in localStorage
+  fullName?: string;
+  jobTitle?: string; // Função
+  age?: number;
+  avatarUrl?: string;
+}

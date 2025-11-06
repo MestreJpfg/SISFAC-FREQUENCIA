@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { FileUp, Users, FileText } from "lucide-react";
 import Link from "next/link";
+import type { UserProfile } from "@/lib/types";
 
 const allFeatures = [
   {
@@ -30,7 +31,7 @@ const allFeatures = [
   },
 ];
 
-export default function Home() {
+export default function Home({ user }: { user?: UserProfile | null }) {
 
   return (
     <div className="flex flex-col items-center text-center space-y-8">
@@ -39,7 +40,7 @@ export default function Home() {
           REGISTRO DE FREQUÊNCIA
         </h1>
         <p className="mt-6 text-lg max-w-2xl text-muted-foreground">
-          Bem-vindo! Selecione uma das opções abaixo para começar.
+          {user ? `Bem-vindo(a), ${user.fullName || user.username}!` : "Bem-vindo!"} Selecione uma das opções abaixo para começar.
         </p>
       </div>
 
