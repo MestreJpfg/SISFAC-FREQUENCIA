@@ -151,7 +151,7 @@ export default function LoginPage() {
         uid: user.uid,
         email: user.email,
         role: isAdminUser ? 'admin' : 'user',
-        isActive: isAdminUser,
+        isActive: isAdminUser, // Admin is active by default, others are not
       });
       if (!isAdminUser) {
         toast({
@@ -381,3 +381,5 @@ export default function LoginPage() {
     </div>
   );
 }
+
+    

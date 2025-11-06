@@ -34,18 +34,7 @@ export function initializeFirebase() {
 
 export function getSdks(firebaseApp: FirebaseApp) {
   const firestore = getFirestore(firebaseApp);
-  // Enable offline persistence
-  enableMultiTabIndexedDbPersistence(firestore).catch((err) => {
-    if (err.code === 'failed-precondition') {
-      // Multiple tabs open, persistence can only be enabled in one tab at a a time.
-      console.log('Firestore persistence failed to enable. Multiple tabs are open.');
-    } else if (err.code === 'unimplemented') {
-      // The current browser does not support all of the
-      // features required to enable persistence
-      console.log('Firestore persistence is not available in this browser.');
-    }
-  });
-
+  // Persistence is now disabled to force re-login
   return {
     firebaseApp,
     auth: getAuth(firebaseApp),
@@ -61,3 +50,5 @@ export * from './non-blocking-updates';
 export * from './non-blocking-login';
 export * from './errors';
 export * from './error-emitter';
+
+    
