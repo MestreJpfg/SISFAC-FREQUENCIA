@@ -2,12 +2,9 @@ import type { Metadata } from "next";
 import { PT_Sans } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
-import { Header } from "@/components/Header";
 import { FirebaseClientProvider } from "@/firebase/client-provider";
 import { AuthGuard } from "@/components/AuthGuard";
 import { cn } from "@/lib/utils";
-import { usePathname } from 'next/navigation';
-
 
 const ptSans = PT_Sans({
   subsets: ["latin"],
@@ -29,36 +26,12 @@ export default function RootLayout({
     <html lang="pt-BR" suppressHydrationWarning>
       <body className={cn("font-sans antialiased", ptSans.variable)}>
         <FirebaseClientProvider>
-           <AuthGuard>
-              {children}
-           </AuthGuard>
+          <AuthGuard>
+            {children}
+          </AuthGuard>
         </FirebaseClientProvider>
         <Toaster />
       </body>
     </html>
   );
-}
-
-
-function AppStructure({ children }: { children: React.ReactNode }) {
-    const pathname = usePathname();
-    const isLoginPage = pathname === '/login';
-
-    if (isLoginPage) {
-        return <>{children}</>;
-    }
-
-    return (
-        <div className="min-h-screen flex flex-col">
-            <Header />
-            <main className="flex-grow container mx-auto p-4 md:p-8">
-                {children}
-            </main>
-            <footer className="py-4 md:py-6 border-t">
-                <div className="container mx-auto px-4 md:px-8 text-center text-sm text-muted-foreground">
-                    <p>&copy; {new Date().getFullYear()} Desenvolvido por @MestreJp. Todos os direitos reservados.</p>
-                </div>
-            </footer>
-        </div>
-    )
 }

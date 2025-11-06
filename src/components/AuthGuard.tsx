@@ -8,6 +8,7 @@ import { useFirebase } from '@/firebase';
 import type { UserProfile } from '@/lib/types';
 import { Loader2, ShieldBan } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
+import { Header } from './Header';
 
 interface AuthGuardProps {
   children: ReactNode;
@@ -22,6 +23,22 @@ const PATH_ROLES: Record<string, ('admin' | 'superUser' | 'user')[]> = {
     '/reports': ['admin', 'superUser', 'user'],
     '/admin': ['admin'],
 };
+
+function AppStructure({ children }: { children: ReactNode }) {
+    return (
+        <div className="min-h-screen flex flex-col">
+            <Header />
+            <main className="flex-grow container mx-auto p-4 md:p-8">
+                {children}
+            </main>
+            <footer className="py-4 md:py-6 border-t">
+                <div className="container mx-auto px-4 md:px-8 text-center text-sm text-muted-foreground">
+                    <p>&copy; {new Date().getFullYear()} Desenvolvido por @MestreJp. Todos os direitos reservados.</p>
+                </div>
+            </footer>
+        </div>
+    )
+}
 
 export function AuthGuard({ children }: AuthGuardProps) {
   const router = useRouter();
@@ -68,8 +85,11 @@ export function AuthGuard({ children }: AuthGuardProps) {
                 return;
             }
 
-            // Check role-based access
-            const allowedRoles = PATH_ROLES[pathname];
+            // Check role-based access for the current path, excluding base path
+            const basePath = pathname.split('/')[1];
+            const currentPath = `/${basePath}`;
+            const allowedRoles = PATH_ROLES[currentPath];
+            
             if (allowedRoles && !allowedRoles.includes(userProfile.role)) {
                 // Redirect to a 'not-authorized' page or home
                 router.push('/?error=not-authorized');
@@ -86,8 +106,9 @@ export function AuthGuard({ children }: AuthGuardProps) {
   }, [user, userProfile, isUserLoading, isProfileLoading, pathname, router]);
 
   const isLoading = isUserLoading || (user && isProfileLoading);
+  const isPublicPath = PUBLIC_PATHS.includes(pathname);
   
-  if (isLoading && !PUBLIC_PATHS.includes(pathname)) {
+  if (isLoading && !isPublicPath) {
     return (
       <div className="flex justify-center items-center h-screen w-screen">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -96,23 +117,31 @@ export function AuthGuard({ children }: AuthGuardProps) {
   }
 
   // Handle unauthorized access display after checks
-  if (user && userProfile && !PUBLIC_PATHS.includes(pathname)) {
-     const allowedRoles = PATH_ROLES[pathname];
+  if (user && userProfile && !isPublicPath) {
+     const basePath = pathname.split('/')[1];
+     const currentPath = `/${basePath}`;
+     const allowedRoles = PATH_ROLES[currentPath];
      if (allowedRoles && !allowedRoles.includes(userProfile.role)) {
          return (
-            <div className="flex justify-center items-center h-full">
-                <Alert variant="destructive" className="max-w-md">
-                    <ShieldBan className="h-4 w-4" />
-                    <AlertTitle>Acesso Negado</AlertTitle>
-                    <AlertDescription>
-                        Você não tem permissão para acessar esta página. Entre em contato com um administrador se você acha que isso é um erro.
-                    </AlertDescription>
-                </Alert>
-            </div>
+             <AppStructure>
+                <div className="flex justify-center items-center h-full">
+                    <Alert variant="destructive" className="max-w-md">
+                        <ShieldBan className="h-4 w-4" />
+                        <AlertTitle>Acesso Negado</AlertTitle>
+                        <AlertDescription>
+                            Você não tem permissão para acessar esta página. Entre em contato com um administrador se você acha que isso é um erro.
+                        </AlertDescription>
+                    </Alert>
+                </div>
+             </AppStructure>
          );
      }
   }
+  
+  // Don't show header/footer on public pages like login
+  if (isPublicPath) {
+    return <>{children}</>;
+  }
 
-
-  return <>{children}</>;
+  return <AppStructure>{children}</AppStructure>;
 }
