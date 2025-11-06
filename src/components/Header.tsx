@@ -3,35 +3,21 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { ClipboardCheck, Users, FileUp, FileText, Menu, UserCog, LogOut } from 'lucide-react';
+import { ClipboardCheck, Users, FileUp, FileText, Menu, UserCog } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
-import { usePathname, useRouter } from 'next/navigation';
-import type { UserProfile } from '@/lib/types';
+import { usePathname } from 'next/navigation';
 
-
-const navLinks: { href: string; label: string; icon: React.ElementType; roles: UserProfile['role'][] }[] = [
-    { href: "/import", label: "Importar Dados", icon: FileUp, roles: ['Administrador'] },
-    { href: "/attendance", label: "Registrar Frequência", icon: Users, roles: ['Administrador', 'Super Usuario'] },
-    { href: "/reports", label: "Relatórios", icon: FileText, roles: ['Administrador', 'Super Usuario', 'Usuario'] },
-    { href: "/admin", label: "Admin", icon: UserCog, roles: ['Administrador'] },
+const navLinks: { href: string; label: string; icon: React.ElementType }[] = [
+    { href: "/import", label: "Importar Dados", icon: FileUp },
+    { href: "/attendance", label: "Registrar Frequência", icon: Users },
+    { href: "/reports", label: "Relatórios", icon: FileText },
 ];
 
-export function Header({ userProfile }: { userProfile: UserProfile | null }) {
+export function Header() {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const pathname = usePathname();
-    const router = useRouter();
-
-    const handleLogout = () => {
-        localStorage.removeItem('userProfile');
-        router.push('/login');
-    };
-    
-    const canViewLink = (linkRoles: string[]) => {
-        if (!userProfile) return false;
-        return linkRoles.includes(userProfile.role);
-    }
 
     return (
         <header className="bg-card border-b sticky top-0 z-30">
@@ -44,17 +30,12 @@ export function Header({ userProfile }: { userProfile: UserProfile | null }) {
                     
                     <nav className="hidden md:flex items-center gap-1">
                         {navLinks.map((link) => (
-                           canViewLink(link.roles) && (
-                                <Button key={link.href} asChild variant="ghost" className={cn("text-muted-foreground", pathname === link.href && "text-foreground bg-accent/50")}>
-                                    <Link href={link.href} className="flex items-center gap-2">
-                                        <link.icon className="h-4 w-4" /> {link.label}
-                                    </Link>
-                                </Button>
-                           )
+                           <Button key={link.href} asChild variant="ghost" className={cn("text-muted-foreground", pathname === link.href && "text-foreground bg-accent/50")}>
+                               <Link href={link.href} className="flex items-center gap-2">
+                                   <link.icon className="h-4 w-4" /> {link.label}
+                               </Link>
+                           </Button>
                         ))}
-                        <Button onClick={handleLogout} variant="ghost" className="text-muted-foreground">
-                            <LogOut className="h-4 w-4 mr-2" /> Sair
-                        </Button>
                     </nav>
                     
                     <div className="md:hidden">
@@ -76,24 +57,17 @@ export function Header({ userProfile }: { userProfile: UserProfile | null }) {
                                     <nav className="flex-grow p-4">
                                         <ul className="space-y-2">
                                             {navLinks.map((link) => (
-                                                canViewLink(link.roles) && (
-                                                    <li key={link.href}>
-                                                        <Button asChild variant="ghost" className={cn("w-full justify-start text-lg h-12", pathname === link.href && "text-foreground bg-accent/50")} onClick={() => setIsMobileMenuOpen(false)}>
-                                                            <Link href={link.href} className="flex items-center gap-3">
-                                                                <link.icon className="h-5 w-5" />
-                                                                {link.label}
-                                                            </Link>
-                                                        </Button>
-                                                    </li>
-                                                )
+                                                <li key={link.href}>
+                                                    <Button asChild variant="ghost" className={cn("w-full justify-start text-lg h-12", pathname === link.href && "text-foreground bg-accent/50")} onClick={() => setIsMobileMenuOpen(false)}>
+                                                        <Link href={link.href} className="flex items-center gap-3">
+                                                            <link.icon className="h-5 w-5" />
+                                                            {link.label}
+                                                        </Link>
+                                                    </Button>
+                                                </li>
                                             ))}
                                         </ul>
                                     </nav>
-                                    <div className="p-4 border-t">
-                                        <Button onClick={handleLogout} variant="outline" className="w-full text-lg h-12">
-                                            <LogOut className="h-5 w-5 mr-3" /> Sair
-                                        </Button>
-                                    </div>
                                 </div>
                             </SheetContent>
                         </Sheet>

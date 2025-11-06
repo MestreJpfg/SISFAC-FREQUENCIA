@@ -22,11 +22,3 @@ export interface AttendanceRecord {
   ensino: string;
   telefone?: string;
 }
-
-export interface UserProfile {
-  uid: string;
-  username: string;
-  password?: string; // Made optional as it shouldn't always be present in client-side data
-  role: 'Administrador' | 'Super Usuario' | 'Usuario';
-  isActive: boolean;
-}

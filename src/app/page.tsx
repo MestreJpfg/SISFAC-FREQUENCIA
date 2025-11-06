@@ -3,11 +3,8 @@
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { FileUp, Users, FileText, UserCog } from "lucide-react";
+import { FileUp, Users, FileText } from "lucide-react";
 import Link from "next/link";
-import { Skeleton } from "@/components/ui/skeleton";
-import type { UserProfile } from '@/lib/types';
-import { useEffect, useState } from "react";
 
 const allFeatures = [
   {
@@ -16,7 +13,6 @@ const allFeatures = [
     icon: <Users className="h-8 w-8 text-primary" />,
     href: "/attendance",
     cta: "Registrar Frequência",
-    roles: ['Administrador', 'Super Usuario']
   },
   {
     title: "Gerar Relatórios",
@@ -24,7 +20,6 @@ const allFeatures = [
     icon: <FileText className="h-8 w-8 text-primary" />,
     href: "/reports",
     cta: "Ver Relatórios",
-    roles: ['Administrador', 'Super Usuario', 'Usuario']
   },
   {
     title: "Importar Alunos",
@@ -32,25 +27,10 @@ const allFeatures = [
     icon: <FileUp className="h-8 w-8 text-primary" />,
     href: "/import",
     cta: "Começar Importação",
-    roles: ['Administrador']
-  },
-  {
-    title: "Gerenciar Usuários",
-    description: "Controle os níveis de acesso e status dos usuários do sistema.",
-    icon: <UserCog className="h-8 w-8 text-primary" />,
-    href: "/admin",
-    cta: "Gerenciar",
-    roles: ['Administrador']
   },
 ];
 
-export default function Home({ userProfile }: { userProfile?: UserProfile | null }) {
-
-  const isLoading = !userProfile;
-
-  const visibleFeatures = userProfile 
-    ? allFeatures.filter(feature => feature.roles.includes(userProfile.role))
-    : [];
+export default function Home() {
 
   return (
     <div className="flex flex-col items-center text-center space-y-8">
@@ -59,43 +39,29 @@ export default function Home({ userProfile }: { userProfile?: UserProfile | null
           REGISTRO DE FREQUÊNCIA
         </h1>
         <p className="mt-6 text-lg max-w-2xl text-muted-foreground">
-          {isLoading ? 'Carregando...' : `Bem-vindo(a), ${userProfile?.username}! Selecione uma das opções abaixo para começar.`}
+          Bem-vindo! Selecione uma das opções abaixo para começar.
         </p>
       </div>
 
       <div className="grid gap-8 sm:grid-cols-1 md:grid-cols-3 w-full max-w-6xl">
-        {isLoading ? (
-            Array.from({ length: 3 }).map((_, index) => (
-                <Card key={index}>
-                    <CardHeader>
-                        <Skeleton className="h-8 w-3/4" />
-                        <Skeleton className="h-4 w-full mt-2" />
-                    </CardHeader>
-                    <CardContent>
-                        <Skeleton className="h-10 w-full" />
-                    </CardContent>
-                </Card>
-            ))
-        ) : (
-            visibleFeatures.map((feature) => (
-              <Card key={feature.title} className="text-left transform hover:scale-105 transition-transform duration-300 ease-in-out shadow-lg hover:shadow-2xl bg-card">
-                <CardHeader className="flex flex-col items-start gap-4">
-                  <div className="bg-primary/20 p-3 rounded-lg">
-                    {feature.icon}
-                  </div>
-                  <div>
-                    <CardTitle className="font-headline">{feature.title}</CardTitle>
-                    <CardDescription className="mt-1">{feature.description}</CardDescription>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <Button asChild className="w-full bg-accent text-accent-foreground hover:bg-accent/90">
-                    <Link href={feature.href}>{feature.cta}</Link>
-                  </Button>
-                </CardContent>
-              </Card>
-            ))
-        )}
+        {allFeatures.map((feature) => (
+          <Card key={feature.title} className="text-left transform hover:scale-105 transition-transform duration-300 ease-in-out shadow-lg hover:shadow-2xl bg-card">
+            <CardHeader className="flex flex-col items-start gap-4">
+              <div className="bg-primary/20 p-3 rounded-lg">
+                {feature.icon}
+              </div>
+              <div>
+                <CardTitle className="font-headline">{feature.title}</CardTitle>
+                <CardDescription className="mt-1">{feature.description}</CardDescription>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <Button asChild className="w-full bg-accent text-accent-foreground hover:bg-accent/90">
+                <Link href={feature.href}>{feature.cta}</Link>
+              </Button>
+            </CardContent>
+          </Card>
+        ))}
       </div>
     </div>
   );
