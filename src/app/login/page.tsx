@@ -90,12 +90,12 @@ export default function LoginPage() {
       const userDoc = await getDoc(userRef);
 
       if (!userDoc.exists()) {
-        const isFirstUser = email.toLowerCase() === 'mestrejp@escola.com';
+        const isAdminUser = email.toLowerCase() === 'mestrejp@escola.com';
         await setDoc(userRef, {
           uid: user.uid,
           email: user.email,
-          role: isFirstUser ? 'admin' : 'user', // Default role 'user', admin for first user
-          isActive: isFirstUser, // Admin user is active by default
+          role: isAdminUser ? 'admin' : 'user', // Default role 'user', admin for first user
+          isActive: isAdminUser, // Admin user is active by default, others start as inactive
         });
       }
 
