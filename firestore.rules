@@ -2,45 +2,80 @@
  * @fileoverview Firestore Security Rules for the school attendance tracker.
  *
  * Core Philosophy:
- * This ruleset prioritizes simplicity and functionality for an internal tool.
- * It allows any authenticated user (including anonymous ones) to read and write
- * all data, which is necessary for the app's core features like batch
- * attendance updates and data imports.
+ * This ruleset implements role-based access control (RBAC) to protect data.
+ * All operations require an authenticated user whose profile is marked as active
+ * in the 'users' collection. Specific roles (admin, superUser, user) dictate
+ * permissions on the 'students' and 'attendance' collections.
  *
  * Data Structure:
  * - /students/{studentId}: Stores individual student data.
  * - /attendance/{attendanceId}: Stores individual attendance records.
- *
- * Key Security Decisions:
- * - Read and Write access (get, list, create, update, delete) is restricted to any signed-in user.
- *   This is suitable for this internal application where all operators are trusted.
+ * - /users/{userId}: Stores user profiles with role and status.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Allows any signed-in user to read and write student data.
-     * @path /students/{studentId}
-     * @allow (read, write): Any signed-in user can manage student records.
-     * @principle Aligns with the internal tool model where all authenticated users are operators.
+     * @description Checks if the requesting user is authenticated and has an active profile
+     *              in the 'users' collection. This is the base-level requirement for any
+     *              data access in the application.
+     * @returns {Boolean} True if the user is signed in and their profile exists and is active.
      */
-    match /students/{studentId} {
-      allow read, write: if isSignedIn();
+    function isSignedInAndActive() {
+      let userId = request.auth.uid;
+      return userId != null && get(/databases/$(database)/documents/users/$(userId)).data.isActive == true;
     }
 
     /**
-     * @description Allows any signed-in user to read and write attendance records.
+     * @description Checks if the user's role is 'admin'.
+     * @returns {Boolean} True if the user is an admin.
+     */
+    function isAdmin() {
+      let userId = request.auth.uid;
+      return get(/databases/$(database)/documents/users/$(userId)).data.role == 'admin';
+    }
+
+     /**
+     * @description Checks if the user's role is 'superUser'.
+     * @returns {Boolean} True if the user is a superUser.
+     */
+    function isSuperUser() {
+      let userId = request.auth.uid;
+      return get(/databases/$(database)/documents/users/$(userId)).data.role == 'superUser';
+    }
+
+    /**
+     * @path /users/{userId}
+     * @description Rules for the user profiles collection.
+     * - Read: Any active user can read any user profile (to list them in admin panel).
+     * - Write: Only admins can create, update, or delete user profiles. A user cannot change their own role or status.
+     */
+    match /users/{userId} {
+      allow read: if isSignedInAndActive();
+      allow write: if isAdmin();
+    }
+    
+    /**
+     * @path /students/{studentId}
+     * @description Rules for the students collection.
+     * - Read: Any active user can read student data (for reports, attendance forms).
+     * - Write: Only admins can create, update, or delete student records (via import).
+     */
+    match /students/{studentId} {
+      allow read: if isSignedInAndActive();
+      allow write: if isSignedInAndActive() && isAdmin();
+    }
+
+    /**
      * @path /attendance/{attendanceId}
-     * @allow (read, write): Any signed-in user can manage attendance records.
-     * @principle Aligns with the internal tool model where all authenticated users are operators.
+     * @description Rules for the attendance collection.
+     * - Read: Any active user can read attendance data (for reports).
+     * - Write: Admins and Super Users can create, update, or delete attendance records.
      */
     match /attendance/{attendanceId} {
-      allow read, write: if isSignedIn();
+      allow read: if isSignedInAndActive();
+      allow write: if isSignedInAndActive() && (isAdmin() || isSuperUser());
     }
-  }
-
-  function isSignedIn() {
-    return request.auth != null;
   }
 }

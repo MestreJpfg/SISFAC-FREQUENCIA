@@ -22,3 +22,10 @@ export interface AttendanceRecord {
   ensino: string;
   telefone?: string;
 }
+
+export interface UserProfile {
+  uid: string;
+  email: string;
+  role: 'admin' | 'superUser' | 'user';
+  isActive: boolean;
+}

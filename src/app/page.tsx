@@ -1,33 +1,65 @@
 
+"use client";
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { FileUp, Users, FileText } from "lucide-react";
+import { FileUp, Users, FileText, UserCog } from "lucide-react";
 import Link from "next/link";
+import { useUser, useDoc, useMemoFirebase } from '@/firebase';
+import type { UserProfile } from '@/lib/types';
+import { doc } from 'firebase/firestore';
+import { useFirebase } from '@/firebase';
+import { Skeleton } from "@/components/ui/skeleton";
+
+const allFeatures = [
+  {
+    title: "Registrar Frequência",
+    description: "Marque a presença diária dos alunos de forma rápida e fácil.",
+    icon: <Users className="h-8 w-8 text-primary" />,
+    href: "/attendance",
+    cta: "Registrar Frequência",
+    roles: ['admin', 'superUser']
+  },
+  {
+    title: "Gerar Relatórios",
+    description: "Visualize relatórios de faltas diários e mensais.",
+    icon: <FileText className="h-8 w-8 text-primary" />,
+    href: "/reports",
+    cta: "Ver Relatórios",
+    roles: ['admin', 'superUser', 'user']
+  },
+  {
+    title: "Importar Alunos",
+    description: "Carregue um arquivo Excel para criar seu banco de dados de alunos.",
+    icon: <FileUp className="h-8 w-8 text-primary" />,
+    href: "/import",
+    cta: "Começar Importação",
+    roles: ['admin']
+  },
+  {
+    title: "Gerenciar Usuários",
+    description: "Controle os níveis de acesso e status dos usuários do sistema.",
+    icon: <UserCog className="h-8 w-8 text-primary" />,
+    href: "/admin",
+    cta: "Gerenciar",
+    roles: ['admin']
+  },
+];
 
 export default function Home() {
-  const features = [
-    {
-      title: "Registrar Frequência",
-      description: "Marque a presença diária dos alunos de forma rápida e fácil.",
-      icon: <Users className="h-8 w-8 text-primary" />,
-      href: "/attendance",
-      cta: "Registrar Frequência"
-    },
-    {
-      title: "Gerar Relatórios",
-      description: "Visualize relatórios de faltas diários e mensais.",
-      icon: <FileText className="h-8 w-8 text-primary" />,
-      href: "/reports",
-      cta: "Ver Relatórios"
-    },
-    {
-      title: "Importar Alunos",
-      description: "Carregue um arquivo Excel para criar seu banco de dados de alunos.",
-      icon: <FileUp className="h-8 w-8 text-primary" />,
-      href: "/import",
-      cta: "Começar Importação"
-    },
-  ];
+  const { user } = useUser();
+  const { firestore } = useFirebase();
+
+  const userProfileRef = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [firestore, user]);
+
+  const { data: userProfile, isLoading } = useDoc<UserProfile>(userProfileRef);
+
+  const visibleFeatures = allFeatures.filter(feature => 
+    userProfile && feature.roles.includes(userProfile.role)
+  );
 
   return (
     <div className="flex flex-col items-center text-center space-y-8">
@@ -36,29 +68,43 @@ export default function Home() {
           REGISTRO DE FREQUÊNCIA
         </h1>
         <p className="mt-6 text-lg max-w-2xl text-muted-foreground">
-          Registre a presença diária e gere relatórios com apenas alguns cliques.
+          {userProfile ? `Bem-vindo(a), ${userProfile.email}! Selecione uma das opções abaixo para começar.` : 'Carregando...'}
         </p>
       </div>
 
       <div className="grid gap-8 sm:grid-cols-1 md:grid-cols-3 w-full max-w-6xl">
-        {features.map((feature) => (
-          <Card key={feature.title} className="text-left transform hover:scale-105 transition-transform duration-300 ease-in-out shadow-lg hover:shadow-2xl bg-card">
-            <CardHeader className="flex flex-col items-start gap-4">
-              <div className="bg-primary/20 p-3 rounded-lg">
-                {feature.icon}
-              </div>
-              <div>
-                <CardTitle className="font-headline">{feature.title}</CardTitle>
-                <CardDescription className="mt-1">{feature.description}</CardDescription>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <Button asChild className="w-full bg-accent text-accent-foreground hover:bg-accent/90">
-                <Link href={feature.href}>{feature.cta}</Link>
-              </Button>
-            </CardContent>
-          </Card>
-        ))}
+        {isLoading ? (
+            Array.from({ length: 3 }).map((_, index) => (
+                <Card key={index}>
+                    <CardHeader>
+                        <Skeleton className="h-8 w-3/4" />
+                        <Skeleton className="h-4 w-full mt-2" />
+                    </CardHeader>
+                    <CardContent>
+                        <Skeleton className="h-10 w-full" />
+                    </CardContent>
+                </Card>
+            ))
+        ) : (
+            visibleFeatures.map((feature) => (
+              <Card key={feature.title} className="text-left transform hover:scale-105 transition-transform duration-300 ease-in-out shadow-lg hover:shadow-2xl bg-card">
+                <CardHeader className="flex flex-col items-start gap-4">
+                  <div className="bg-primary/20 p-3 rounded-lg">
+                    {feature.icon}
+                  </div>
+                  <div>
+                    <CardTitle className="font-headline">{feature.title}</CardTitle>
+                    <CardDescription className="mt-1">{feature.description}</CardDescription>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <Button asChild className="w-full bg-accent text-accent-foreground hover:bg-accent/90">
+                    <Link href={feature.href}>{feature.cta}</Link>
+                  </Button>
+                </CardContent>
+              </Card>
+            ))
+        )}
       </div>
     </div>
   );
