@@ -11,7 +11,7 @@ import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { Header } from './Header';
 
 interface AuthGuardProps {
-  children: ReactElement; // Now expecting a single ReactElement child
+  children: ReactElement;
 }
 
 const PUBLIC_PATHS = ['/login'];
@@ -63,83 +63,72 @@ export function AuthGuard({ children }: AuthGuardProps) {
 
   const isPublicPath = PUBLIC_PATHS.includes(pathname);
 
-  useEffect(() => {
-    if (isUserLoading) {
-      return; 
-    }
-
-    if (!user && !isPublicPath) {
-      router.push('/login');
-    }
-
-    if (user && isPublicPath) {
-      router.push('/');
-    }
-
-  }, [isUserLoading, user, pathname, router, isPublicPath]);
-
-  const isLoading = isUserLoading || (user && !isPublicPath && isProfileLoading);
-
-  if (isLoading) {
+  // 1. Handle initial authentication loading
+  if (isUserLoading) {
     return <FullScreenLoader />;
   }
-  
+
+  // 2. Handle routing for unauthenticated users
+  if (!user && !isPublicPath) {
+    router.push('/login');
+    return <FullScreenLoader />;
+  }
+
+  // 3. Handle routing for authenticated users on public paths
+  if (user && isPublicPath) {
+    router.push('/');
+    return <FullScreenLoader />;
+  }
+
+  // 4. Render public paths if user is not authenticated
   if (isPublicPath) {
-      if (!user) {
-        return <>{children}</>;
-      }
-      // If user is logged in on a public path, the useEffect will redirect.
-      // Show loader in the meantime.
-      return <FullScreenLoader />;
+      return <>{children}</>;
   }
 
   // --- From here, we are on a protected path with an authenticated user ---
 
-  if (user && userProfile) {
-    if (!userProfile.isActive) {
-         // This should be handled by the useEffect, but as a fallback:
-         router.push('/login?message=account-disabled');
-         return <FullScreenLoader />;
-    }
-
-    const basePath = `/${pathname.split('/')[1]}`;
-    const allowedRoles = PATH_ROLES[basePath];
-
-    if (allowedRoles && !allowedRoles.includes(userProfile.role)) {
-      return (
-        <AppStructure>
-          <div className="flex justify-center items-center h-full">
-            <Alert variant="destructive" className="max-w-md">
-              <ShieldBan className="h-4 w-4" />
-              <AlertTitle>Acesso Negado</AlertTitle>
-              <AlertDescription>
-                Você não tem permissão para acessar esta página.
-              </AlertDescription>
-            </Alert>
-          </div>
-        </AppStructure>
-      );
-    }
-     // If access is granted, render the structure and clone the children with userProfile prop
-    return (
-        <AppStructure>
-            {cloneElement(children, { userProfile })}
-        </AppStructure>
-    );
-
+  // 5. Handle profile loading state
+  if (isProfileLoading) {
+      return <FullScreenLoader/>;
   }
   
-  // If user exists but profile is still loading (or doesn't exist), show loader
-   if (user && !userProfile) {
+  // 6. Handle cases where profile doesn't exist or user is inactive
+  if (!userProfile) {
+    // This could happen if the user document is deleted, or hasn't been created yet.
+    // Redirecting to login to be safe.
+    router.push('/login');
     return <FullScreenLoader />;
   }
+
+  if (!userProfile.isActive) {
+     router.push('/login?message=account-disabled');
+     return <FullScreenLoader />;
+  }
   
-  // Fallback for redirecting unauthenticated users from protected paths
-  if (!user && !isPublicPath) {
-      router.push('/login');
-      return <FullScreenLoader/>
+  // 7. Check role-based access control
+  const basePath = `/${pathname.split('/')[1]}`;
+  const allowedRoles = PATH_ROLES[basePath];
+
+  if (allowedRoles && !allowedRoles.includes(userProfile.role)) {
+    return (
+      <AppStructure>
+        <div className="flex justify-center items-center h-full">
+          <Alert variant="destructive" className="max-w-md">
+            <ShieldBan className="h-4 w-4" />
+            <AlertTitle>Acesso Negado</AlertTitle>
+            <AlertDescription>
+              Você não tem permissão para acessar esta página.
+            </AlertDescription>
+          </Alert>
+        </div>
+      </AppStructure>
+    );
   }
 
-  // This should ideally not be reached, but it's a safe fallback.
-  return <FullScreenLoader />;
+  // 8. If all checks pass, render the page
+  return (
+      <AppStructure>
+          {cloneElement(children, { userProfile })}
+      </AppStructure>
+  );
 }
