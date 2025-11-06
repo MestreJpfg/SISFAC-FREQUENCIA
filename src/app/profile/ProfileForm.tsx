@@ -8,11 +8,10 @@ import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Save, TriangleAlert } from 'lucide-react';
+import { Loader2, Save, TriangleAlert, Upload } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import type { UserProfile } from '@/lib/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Textarea } from '@/components/ui/textarea';
 
 export function ProfileForm() {
     const { firestore } = useFirebase();
@@ -21,6 +20,8 @@ export function ProfileForm() {
     const [isPending, startTransition] = useTransition();
     const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [imagePreview, setImagePreview] = useState<string | null>(null);
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
     useEffect(() => {
         setIsLoading(true);
@@ -31,7 +32,11 @@ export function ProfileForm() {
                 const docRef = doc(firestore, "users", parsedUser.id);
                 getDoc(docRef).then(docSnap => {
                     if (docSnap.exists()) {
-                        setUserProfile({ id: docSnap.id, ...docSnap.data() } as UserProfile);
+                        const userData = { id: docSnap.id, ...docSnap.data() } as UserProfile;
+                        setUserProfile(userData);
+                        if(userData.avatarUrl) {
+                            setImagePreview(userData.avatarUrl)
+                        }
                     } else {
                         // User in localStorage but not in DB, force logout
                         localStorage.removeItem('userProfile');
@@ -44,11 +49,23 @@ export function ProfileForm() {
                  setIsLoading(false);
             }
         } else {
-            // No user in storage. Don't redirect, just show loading/error state.
             setUserProfile(null);
             setIsLoading(false);
         }
-    }, [firestore, router]);
+    }, [firestore]);
+    
+    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (file) {
+            setSelectedFile(file);
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setImagePreview(reader.result as string);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
 
     const handleUpdateProfile = async (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
@@ -56,11 +73,17 @@ export function ProfileForm() {
 
         startTransition(async () => {
             const formData = new FormData(event.currentTarget);
+            
+            let newAvatarUrl = userProfile.avatarUrl;
+            if (selectedFile) {
+                newAvatarUrl = imagePreview!;
+            }
+
             const updatedData = {
                 fullName: formData.get('fullName') as string,
                 jobTitle: formData.get('jobTitle') as string,
                 age: Number(formData.get('age')),
-                avatarUrl: formData.get('avatarUrl') as string,
+                avatarUrl: newAvatarUrl,
             };
 
             try {
@@ -68,11 +91,11 @@ export function ProfileForm() {
                 await updateDoc(userRef, updatedData);
 
                 // Update localStorage
-                const updatedProfile = { ...userProfile, ...updatedData };
-                const { password, ...userToStore } = updatedProfile;
-                localStorage.setItem('userProfile', JSON.stringify(userToStore));
+                const updatedProfileInStorage = { ...userProfile, ...updatedData };
+                // IMPORTANT: The password is not present in userProfile state fetched from DB, so it won't be re-saved.
+                localStorage.setItem('userProfile', JSON.stringify(updatedProfileInStorage));
                 window.dispatchEvent(new CustomEvent('local-storage-changed'));
-                setUserProfile(updatedProfile);
+                setUserProfile(updatedProfileInStorage);
 
                 toast({ title: 'Sucesso', description: 'Seu perfil foi atualizado.' });
             } catch (error) {
@@ -110,19 +133,21 @@ export function ProfileForm() {
 
     return (
         <form onSubmit={handleUpdateProfile} className="space-y-6">
-            <div className="flex items-center gap-4">
-                 <Avatar className="h-20 w-20">
-                    <AvatarImage src={userProfile.avatarUrl} alt={userProfile.username} />
+            <div className="flex items-center gap-6">
+                 <Avatar className="h-24 w-24">
+                    <AvatarImage src={imagePreview || undefined} alt={userProfile.username} />
                     <AvatarFallback>{getInitials(userProfile.fullName || userProfile.username)}</AvatarFallback>
                 </Avatar>
                 <div className='space-y-2 w-full'>
-                    <Label htmlFor="avatarUrl">URL da Foto de Perfil</Label>
+                    <Label htmlFor="avatarFile">Foto de Perfil</Label>
                     <Input 
-                        id="avatarUrl" 
-                        name="avatarUrl" 
-                        defaultValue={userProfile.avatarUrl}
-                        placeholder="https://exemplo.com/sua-foto.jpg"
+                        id="avatarFile" 
+                        name="avatarFile" 
+                        type="file"
+                        accept="image/*"
+                        onChange={handleFileChange}
                     />
+                     <p className="text-xs text-muted-foreground">Selecione uma imagem para seu perfil.</p>
                 </div>
             </div>
 
