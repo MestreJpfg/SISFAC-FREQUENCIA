@@ -1,7 +1,8 @@
+
 "use client";
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ClipboardCheck, Users, FileUp, FileText, Menu, UserCog, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -25,19 +26,47 @@ const navLinks: { href: string; label: string; icon: React.ElementType }[] = [
     { href: "/reports", label: "Relatórios", icon: FileText },
 ];
 
-export function Header({ user }: { user: UserProfile | null }) {
+export function Header() {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const pathname = usePathname();
     const router = useRouter();
+    const [user, setUser] = useState<UserProfile | null>(null);
+
+    useEffect(() => {
+        const handleStorageChange = () => {
+            try {
+                const storedUser = localStorage.getItem('userProfile');
+                if (storedUser) {
+                    setUser(JSON.parse(storedUser));
+                } else {
+                    setUser(null);
+                }
+            } catch (error) {
+                console.error("Failed to parse user profile from localStorage", error);
+                setUser(null);
+            }
+        };
+
+        handleStorageChange(); // Initial check
+        window.addEventListener('storage', handleStorageChange);
+        window.addEventListener('local-storage-changed', handleStorageChange);
+
+        return () => {
+            window.removeEventListener('storage', handleStorageChange);
+            window.removeEventListener('local-storage-changed', handleStorageChange);
+        };
+    }, []);
+
 
     const handleLogout = () => {
         localStorage.removeItem('userProfile');
-        // Dispatch a custom event to notify AppController of the change
+        // Dispatch a custom event to notify other components if needed
         window.dispatchEvent(new CustomEvent('local-storage-changed'));
         router.push('/login');
     };
 
-    const getInitials = (name: string) => {
+    const getInitials = (name?: string) => {
+        if (!name) return "";
         const names = name.split(' ');
         if (names.length > 1) {
             return `${names[0][0]}${names[names.length - 1][0]}`.toUpperCase();
