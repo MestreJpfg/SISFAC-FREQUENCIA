@@ -54,61 +54,62 @@ export function AuthGuard({ children }: AuthGuardProps) {
   const { data: userProfile, isLoading: isProfileLoading } = useDoc<UserProfile>(userProfileRef);
 
   useEffect(() => {
-    // Wait until loading is complete
     if (isUserLoading) {
-      return;
+      return; // Aguarde a verificação inicial de autenticação terminar
     }
 
     const isPublicPath = PUBLIC_PATHS.includes(pathname);
 
-    // If user is not logged in and path is not public, redirect to login
-    if (!user && !isPublicPath) {
-      router.push('/login');
-      return;
-    }
-
-    // If user is logged in
     if (user) {
-        // If user is on login page, redirect to home immediately
-        if (isPublicPath) {
-            router.push('/');
-            return;
-        }
+      // Se o usuário está logado e na página de login, redirecione para a home.
+      if (isPublicPath) {
+        router.push('/');
+        return;
+      }
 
-        // If profile is loaded, perform further checks
-        if(userProfile) {
-            // If user is not active, log them out and show message
-            if (!userProfile.isActive) {
-                // Consider signing out the user here before redirecting
-                // signOut(auth); 
-                router.push('/login?message=account-disabled');
-                return;
-            }
+      // Se o perfil está carregando, não faça nada ainda. O return do `isLoading` abaixo cuidará disso.
+      if (isProfileLoading) {
+        return;
+      }
 
-            // Check role-based access for the current path, excluding base path
-            const basePath = pathname.split('/')[1];
-            const currentPath = `/${basePath}`;
-            const allowedRoles = PATH_ROLES[currentPath];
-            
-            if (allowedRoles && !allowedRoles.includes(userProfile.role)) {
-                // Redirect to a 'not-authorized' page or home
-                router.push('/?error=not-authorized');
-                return;
-            }
-        }
-        // If there's a user but no profile (e.g., just created), and not on a public path
-        else if (!isProfileLoading && !isPublicPath) {
-            // This might happen for a brief moment after signup.
-            // Or if profile creation failed. Redirect to login to be safe.
-            router.push('/login?message=profile-not-found');
-        }
+      // Se o perfil não existe ou o usuário não está ativo, deslogue e mande para o login.
+      if (!userProfile || !userProfile.isActive) {
+        router.push('/login?message=account-disabled');
+        return;
+      }
+
+      // Verificação de permissão baseada na rota
+      const basePath = `/${pathname.split('/')[1]}`;
+      const allowedRoles = PATH_ROLES[basePath];
+      if (allowedRoles && !allowedRoles.includes(userProfile.role)) {
+        router.push('/?error=not-authorized'); // Redireciona para home com erro
+      }
+
+    } else {
+      // Se não há usuário e a página não é pública, redirecione para o login.
+      if (!isPublicPath) {
+        router.push('/login');
+      }
     }
   }, [user, userProfile, isUserLoading, isProfileLoading, pathname, router]);
 
   const isLoading = isUserLoading || (user && isProfileLoading);
   const isPublicPath = PUBLIC_PATHS.includes(pathname);
+
+  if (isPublicPath) {
+    // Se o usuário já está logado, mostra um loader enquanto redireciona.
+    if(user) {
+         return (
+            <div className="flex justify-center items-center h-screen w-screen">
+                <Loader2 className="h-12 w-12 animate-spin text-primary" />
+            </div>
+        );
+    }
+    // Se não, mostra a página pública (login)
+    return <>{children}</>;
+  }
   
-  if (isLoading && !isPublicPath) {
+  if (isLoading) {
     return (
       <div className="flex justify-center items-center h-screen w-screen">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -116,11 +117,11 @@ export function AuthGuard({ children }: AuthGuardProps) {
     );
   }
 
-  // Handle unauthorized access display after checks
-  if (user && userProfile && !isPublicPath) {
-     const basePath = pathname.split('/')[1];
-     const currentPath = `/${basePath}`;
-     const allowedRoles = PATH_ROLES[currentPath];
+  // Se chegou até aqui, o usuário está logado, o perfil carregou, e ele não está em uma página pública
+  // Agora, fazemos a verificação final de permissão para renderizar a página ou a mensagem de erro.
+  if (user && userProfile) {
+     const basePath = `/${pathname.split('/')[1]}`;
+     const allowedRoles = PATH_ROLES[basePath];
      if (allowedRoles && !allowedRoles.includes(userProfile.role)) {
          return (
              <AppStructure>
@@ -129,28 +130,20 @@ export function AuthGuard({ children }: AuthGuardProps) {
                         <ShieldBan className="h-4 w-4" />
                         <AlertTitle>Acesso Negado</AlertTitle>
                         <AlertDescription>
-                            Você não tem permissão para acessar esta página. Entre em contato com um administrador se você acha que isso é um erro.
+                            Você não tem permissão para acessar esta página.
                         </AlertDescription>
                     </Alert>
                 </div>
              </AppStructure>
          );
      }
-  }
-  
-  // Don't show header/footer on public pages like login
-  if (isPublicPath) {
-    return <>{children}</>;
-  }
-
-  // If user exists, but profile is still loading, show a loading state
-  // This prevents content from flashing before roles are checked
-  if (user && isProfileLoading) {
-      return (
-          <div className="flex justify-center items-center h-screen w-screen">
-              <Loader2 className="h-12 w-12 animate-spin text-primary" />
-          </div>
-      );
+  } else if (!user) {
+    // Se por algum motivo o usuário se tornou nulo, mostre o loader para o useEffect redirecionar
+     return (
+      <div className="flex justify-center items-center h-screen w-screen">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+      </div>
+    );
   }
 
   return <AppStructure>{children}</AppStructure>;
