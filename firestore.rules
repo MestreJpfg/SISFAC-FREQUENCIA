@@ -49,11 +49,12 @@ service cloud.firestore {
     /**
      * @path /users/{userId}
      * @description Rules for the user profiles collection.
-     * - Read: An active user can read profiles. A user can always read their own profile.
+     * - Read: Any authenticated user can read user profiles. This is necessary for the app to
+     *         check a user's own role and active status upon login.
      * - Write: Only admins can create, update, or delete user profiles.
      */
     match /users/{userId} {
-      allow read: if isSignedInAndActive() || request.auth.uid == userId;
+      allow read: if request.auth.uid != null;
       allow write: if isAdmin();
     }
     
