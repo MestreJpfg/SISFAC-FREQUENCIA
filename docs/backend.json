@@ -127,7 +127,9 @@
   },
   "auth": {
     "providers": [
-      "email"
+      "email",
+      "google",
+      "phone"
     ]
   },
   "firestore": {
