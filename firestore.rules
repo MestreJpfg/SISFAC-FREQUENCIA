@@ -5,7 +5,8 @@
  * This ruleset implements role-based access control (RBAC) to protect data.
  * All operations require an authenticated user whose profile is marked as active
  * in the 'users' collection. Specific roles (admin, superUser, user) dictate
- * permissions on the 'students' and 'attendance' collections.
+ * permissions on the 'students' and 'attendance' collections. A user can always
+ * read their own profile.
  *
  * Data Structure:
  * - /students/{studentId}: Stores individual student data.
@@ -18,7 +19,7 @@ service cloud.firestore {
 
     /**
      * @description Checks if the requesting user is authenticated and has an active profile
-     *              in the 'users' collection. This is the base-level requirement for any
+     *              in the 'users' collection. This is the base-level requirement for most
      *              data access in the application.
      * @returns {Boolean} True if the user is signed in and their profile exists and is active.
      */
@@ -48,19 +49,19 @@ service cloud.firestore {
     /**
      * @path /users/{userId}
      * @description Rules for the user profiles collection.
-     * - Read: Any active user can read any user profile (to list them in admin panel).
-     * - Write: Only admins can create, update, or delete user profiles. A user cannot change their own role or status.
+     * - Read: An active user can read profiles. A user can always read their own profile.
+     * - Write: Only admins can create, update, or delete user profiles.
      */
     match /users/{userId} {
-      allow read: if isSignedInAndActive();
+      allow read: if isSignedInAndActive() || request.auth.uid == userId;
       allow write: if isAdmin();
     }
     
     /**
      * @path /students/{studentId}
      * @description Rules for the students collection.
-     * - Read: Any active user can read student data (for reports, attendance forms).
-     * - Write: Only admins can create, update, or delete student records (via import).
+     * - Read: Any active user can read student data.
+     * - Write: Only admins can create, update, or delete student records.
      */
     match /students/{studentId} {
       allow read: if isSignedInAndActive();
@@ -70,7 +71,7 @@ service cloud.firestore {
     /**
      * @path /attendance/{attendanceId}
      * @description Rules for the attendance collection.
-     * - Read: Any active user can read attendance data (for reports).
+     * - Read: Any active user can read attendance data.
      * - Write: Admins and Super Users can create, update, or delete attendance records.
      */
     match /attendance/{attendanceId} {
