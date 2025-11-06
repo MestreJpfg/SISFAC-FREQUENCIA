@@ -59,7 +59,7 @@ export default function Home({ userProfile }: { userProfile?: UserProfile | null
           REGISTRO DE FREQUÊNCIA
         </h1>
         <p className="mt-6 text-lg max-w-2xl text-muted-foreground">
-          {isLoading ? 'Carregando...' : `Bem-vindo(a), ${userProfile?.email}! Selecione uma das opções abaixo para começar.`}
+          {isLoading ? 'Carregando...' : `Bem-vindo(a), ${userProfile?.username}! Selecione uma das opções abaixo para começar.`}
         </p>
       </div>
 

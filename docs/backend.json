@@ -108,9 +108,9 @@
                 "type": "string",
                 "description": "The user's unique ID from Firestore document ID."
             },
-            "email": {
+            "username": {
                 "type": "string",
-                "description": "The user's email address, used for login."
+                "description": "The user's username, used for login."
             },
             "password": {
                 "type": "string",
@@ -126,7 +126,7 @@
                 "description": "Determines if the user's account is active and can access the system."
             }
         },
-        "required": ["uid", "email", "password", "role", "isActive"]
+        "required": ["uid", "username", "password", "role", "isActive"]
     }
   },
   "auth": {

@@ -34,7 +34,7 @@ export function UserManagement() {
 
     const sortedUsers = useMemo(() => {
         if (!users) return [];
-        return [...users].sort((a, b) => (a.email || '').localeCompare(b.email || ''));
+        return [...users].sort((a, b) => (a.username || '').localeCompare(b.username || ''));
     }, [users]);
 
 
@@ -90,7 +90,7 @@ export function UserManagement() {
             <Table>
                 <TableHeader>
                     <TableRow>
-                        <TableHead>Email</TableHead>
+                        <TableHead>Nome de Usuário</TableHead>
                         <TableHead>Nível de Acesso</TableHead>
                         <TableHead>Status (Ativo)</TableHead>
                     </TableRow>
@@ -98,7 +98,7 @@ export function UserManagement() {
                 <TableBody>
                     {sortedUsers.map((profile) => (
                         <TableRow key={profile.id}>
-                            <TableCell className="font-medium">{profile.email}</TableCell>
+                            <TableCell className="font-medium">{profile.username}</TableCell>
                             <TableCell>
                                 <Select
                                     value={profile.role}
@@ -120,7 +120,7 @@ export function UserManagement() {
                                     checked={profile.isActive}
                                     onCheckedChange={(checked) => handleStatusChange(profile.id, checked)}
                                     disabled={isCurrentUser(profile.uid)}
-                                    aria-label={`Ativar ou desativar usuário ${profile.email}`}
+                                    aria-label={`Ativar ou desativar usuário ${profile.username}`}
                                 />
                             </TableCell>
                         </TableRow>

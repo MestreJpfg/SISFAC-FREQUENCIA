@@ -25,7 +25,7 @@ export interface AttendanceRecord {
 
 export interface UserProfile {
   uid: string;
-  email: string;
+  username: string;
   password?: string; // Made optional as it shouldn't always be present in client-side data
   role: 'Administrador' | 'Super Usuario' | 'Usuario';
   isActive: boolean;

@@ -24,7 +24,7 @@ export default function LoginPage() {
   const router = useRouter();
   const { toast } = useToast();
   
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -41,8 +41,8 @@ export default function LoginPage() {
       handleAuthError("O serviço de banco de dados não está disponível.");
       return;
     }
-    if (!email || !password) {
-      handleAuthError("Por favor, preencha o email e a senha.");
+    if (!username || !password) {
+      handleAuthError("Por favor, preencha o nome de usuário e a senha.");
       return;
     }
 
@@ -50,12 +50,12 @@ export default function LoginPage() {
     
     try {
       const usersRef = collection(firestore, 'users');
-      const q = query(usersRef, where("email", "==", email), where("password", "==", password));
+      const q = query(usersRef, where("username", "==", username), where("password", "==", password));
       
       const querySnapshot = await getDocs(q);
 
       if (querySnapshot.empty) {
-        handleAuthError("Email ou senha inválidos.");
+        handleAuthError("Nome de usuário ou senha inválidos.");
         setIsLoading(false);
         return;
       }
@@ -68,7 +68,7 @@ export default function LoginPage() {
       
       toast({
         title: "Login bem-sucedido!",
-        description: `Bem-vindo(a), ${userData.email}.`,
+        description: `Bem-vindo(a), ${userData.username}.`,
       });
 
       router.push('/');
@@ -94,8 +94,8 @@ export default function LoginPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="login-email">Email</Label>
-              <Input id="login-email" type="email" placeholder="email@exemplo.com" required value={email} onChange={(e) => setEmail(e.target.value)} disabled={isLoading} />
+              <Label htmlFor="login-username">Nome de Usuário</Label>
+              <Input id="login-username" type="text" placeholder="ex: joaosilva" required value={username} onChange={(e) => setUsername(e.target.value)} disabled={isLoading} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="login-password">Senha</Label>
