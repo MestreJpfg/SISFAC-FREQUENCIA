@@ -57,12 +57,14 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (!auth) return;
-    window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-      'size': 'invisible',
-      'callback': (response: any) => {
-        // reCAPTCHA solved, allow signInWithPhoneNumber.
-      }
-    });
+    if (!window.recaptchaVerifier) {
+      window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+        'size': 'invisible',
+        'callback': (response: any) => {
+          // reCAPTCHA solved, allow signInWithPhoneNumber.
+        }
+      });
+    }
 
     return () => {
         window.recaptchaVerifier?.clear();
@@ -120,7 +122,7 @@ export default function LoginPage() {
     const userDoc = await getDoc(userRef);
 
     if (!userDoc.exists()) {
-      const isAdminUser = user.email?.toLowerCase() === 'mestrejp@escola.com';
+      const isAdminUser = user.email?.toLowerCase() === 'mestrejpfg@gmail.com';
       await setDoc(userRef, {
         uid: user.uid,
         email: user.email,
@@ -138,6 +140,7 @@ export default function LoginPage() {
 
   // --- Email/Password Logic ---
   const handleLogin = async () => {
+    if (!auth) return;
     setIsLoading(true);
     try {
       await signInWithEmailAndPassword(auth, email, password);
@@ -150,11 +153,16 @@ export default function LoginPage() {
   };
 
   const handleSignUp = async () => {
+    if (!auth) return;
     setIsLoading(true);
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       await createOrUpdateUserProfile(userCredential.user);
       setActiveTab('login');
+      toast({
+          title: 'Cadastro Quase Completo!',
+          description: 'Por favor, faça login para continuar.'
+      })
       setEmail('');
       setPassword('');
     } catch (error) {
@@ -166,6 +174,7 @@ export default function LoginPage() {
   
   // --- Google Auth Logic ---
   const handleGoogleSignIn = async () => {
+    if (!auth) return;
     setIsLoading(true);
     try {
         const provider = new GoogleAuthProvider();
@@ -181,6 +190,7 @@ export default function LoginPage() {
 
   // --- Phone Auth Logic ---
   const handlePhoneSignIn = async () => {
+    if (!auth) return;
     setIsLoading(true);
     try {
         const verifier = window.recaptchaVerifier!;
@@ -198,6 +208,7 @@ export default function LoginPage() {
   };
 
   const handleVerifyCode = async () => {
+    if (!auth) return;
     setIsLoading(true);
     try {
         const confirmationResult = window.confirmationResult;

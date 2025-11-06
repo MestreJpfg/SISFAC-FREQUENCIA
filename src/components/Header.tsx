@@ -42,15 +42,6 @@ export function Header() {
         router.push('/login');
     };
     
-    // TEMPORARY: Force logout on component mount to allow user to re-register
-    useEffect(() => {
-        if (auth && user) {
-            handleLogout();
-        }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [auth, user]);
-
-
     const canViewLink = (linkRoles: string[]) => {
         if (isUserLoading || !userProfile) return false;
         return linkRoles.includes(userProfile.role);
