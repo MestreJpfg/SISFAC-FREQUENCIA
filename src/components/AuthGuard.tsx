@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, type ReactNode, cloneElement, ReactElement } from 'react';
+import { type ReactNode, cloneElement, ReactElement } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useUser, useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
