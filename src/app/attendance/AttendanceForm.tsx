@@ -44,6 +44,15 @@ type GroupedStudents = {
     [groupKey: string]: StudentWithId[];
 }
 
+const getEnsinoContraction = (ensino: string): string => {
+    const upperEnsino = ensino.toUpperCase();
+    if (upperEnsino.includes('INFANTIL')) return 'INFANTIL';
+    if (upperEnsino.includes('FUNDAMENTAL 1') || upperEnsino.includes('FUNDAMENTAL I')) return 'FUND. I';
+    if (upperEnsino.includes('FUNDAMENTAL 2') || upperEnsino.includes('FUNDAMENTAL II')) return 'FUND. II';
+    if (upperEnsino.includes('MÉDIO')) return 'MÉDIO';
+    return ensino;
+}
+
 export function AttendanceForm() {
     const { firestore } = useFirebase();
     const [attendance, setAttendance] = useState<Record<string, AttendanceStatus>>({});
@@ -272,7 +281,7 @@ export function AttendanceForm() {
                     <Tabs value={activeEnsinoTab} onValueChange={setActiveEnsinoTab} className="w-full sm:w-auto">
                         <TabsList>
                             {uniqueEnsinos.map(ensino => (
-                                <TabsTrigger key={ensino} value={ensino}>{ensino}</TabsTrigger>
+                                <TabsTrigger key={ensino} value={ensino}>{getEnsinoContraction(ensino)}</TabsTrigger>
                             ))}
                         </TabsList>
                     </Tabs>
