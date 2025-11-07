@@ -276,37 +276,36 @@ export function AttendanceForm() {
 
     return (
         <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
-                <div>
-                     <Tabs value={activeEnsinoTab} onValueChange={setActiveEnsinoTab} className="w-full sm:w-auto">
-                        <TabsList>
-                            {uniqueEnsinos.map(ensino => (
-                                <TabsTrigger key={ensino} value={ensino}>{getEnsinoContraction(ensino)}</TabsTrigger>
-                            ))}
-                        </TabsList>
-                    </Tabs>
-                    <Tabs value={activeTurnoTab} onValueChange={setActiveTurnoTab} className="w-full sm:w-auto mt-2">
-                        <TabsList>
-                            {turnosForSelectedEnsino.map(turno => (
-                                <TabsTrigger key={turno} value={turno}>{turno}</TabsTrigger>
-                            ))}
-                        </TabsList>
-                    </Tabs>
+            <div className="flex flex-col sm:flex-row justify-center items-center gap-4 text-sm font-medium w-full flex-wrap border-b pb-4">
+                <div className="flex items-center gap-2" style={{color: 'hsl(142.1 76.2% 36.3%)'}}>
+                    <UserCheck className="h-5 w-5" />
+                    Presentes: {presentCount}
                 </div>
-                <div className="flex justify-end gap-4 text-sm font-medium w-full sm:w-auto flex-wrap">
-                    <div className="flex items-center gap-2" style={{color: 'hsl(142.1 76.2% 36.3%)'}}>
-                        <UserCheck className="h-5 w-5" />
-                        Presentes: {presentCount}
-                    </div>
-                    <div className="flex items-center gap-2" style={{color: 'hsl(0 84.2% 60.2%)'}}>
-                        <UserX className="h-5 w-5" />
-                        Ausentes: {absentCount}
-                    </div>
-                     <div className="flex items-center gap-2 text-blue-600">
-                        <UserCog className="h-5 w-5" />
-                        Justificadas: {justifiedCount}
-                    </div>
+                <div className="flex items-center gap-2" style={{color: 'hsl(0 84.2% 60.2%)'}}>
+                    <UserX className="h-5 w-5" />
+                    Ausentes: {absentCount}
                 </div>
+                <div className="flex items-center gap-2 text-blue-600">
+                    <UserCog className="h-5 w-5" />
+                    Justificadas: {justifiedCount}
+                </div>
+            </div>
+
+            <div className="flex flex-col items-center gap-4">
+                 <Tabs value={activeEnsinoTab} onValueChange={setActiveEnsinoTab} className="w-full sm:w-auto">
+                    <TabsList>
+                        {uniqueEnsinos.map(ensino => (
+                            <TabsTrigger key={ensino} value={ensino}>{getEnsinoContraction(ensino)}</TabsTrigger>
+                        ))}
+                    </TabsList>
+                </Tabs>
+                <Tabs value={activeTurnoTab} onValueChange={setActiveTurnoTab} className="w-full sm:w-auto">
+                    <TabsList>
+                        {turnosForSelectedEnsino.map(turno => (
+                            <TabsTrigger key={turno} value={turno}>{turno}</TabsTrigger>
+                        ))}
+                    </TabsList>
+                </Tabs>
             </div>
 
              <Accordion 
