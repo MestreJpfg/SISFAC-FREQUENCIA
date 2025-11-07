@@ -276,7 +276,7 @@ export function AttendanceForm() {
 
     return (
         <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row justify-center items-center gap-4 text-sm font-medium w-full flex-wrap border-b pb-4">
+            <div className="flex flex-row justify-center items-center gap-4 text-sm font-medium w-full flex-wrap border-b pb-4">
                 <div className="flex items-center gap-2" style={{color: 'hsl(142.1 76.2% 36.3%)'}}>
                     <UserCheck className="h-5 w-5" />
                     Presentes: {presentCount}
