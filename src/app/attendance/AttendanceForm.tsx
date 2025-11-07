@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import type { Student } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -51,6 +51,7 @@ export function AttendanceForm() {
     const [activeEnsinoTab, setActiveEnsinoTab] = useState<string | undefined>();
     const [activeTurnoTab, setActiveTurnoTab] = useState<string | undefined>();
     const [openAccordions, setOpenAccordions] = useState<string[]>([]);
+    const isInitialized = useRef(false);
 
     const studentsQuery = useMemoFirebase(() => {
         if (!firestore) return null;
@@ -73,16 +74,20 @@ export function AttendanceForm() {
     const { data: todaysAttendance, isLoading: isLoadingAttendance } = useCollection<AttendanceRecordFromDB>(attendanceQuery);
 
     useEffect(() => {
-        if (students) {
+        // Initialize attendance state only once when students and attendance data are available.
+        // This prevents overwriting user's local changes on data re-fetch (e.g., after coming back online).
+        if (students && todaysAttendance && !isInitialized.current) {
             const initialAttendance: Record<string, 'present' | 'absent'> = {};
-            const todaysAbsenceMap = todaysAttendance ? new Map(todaysAttendance.map(att => [att.studentId, att.status])) : new Map();
+            const todaysAbsenceMap = new Map(todaysAttendance.map(att => [att.studentId, att.status]));
 
             students.forEach(student => {
                 initialAttendance[student.id] = todaysAbsenceMap.get(student.id) || 'present';
             });
             setAttendance(initialAttendance);
+            isInitialized.current = true; // Mark as initialized
         }
     }, [students, todaysAttendance]);
+
 
     const { uniqueEnsinos } = useMemo(() => {
         if (!students) return { uniqueEnsinos: [] };
@@ -240,7 +245,7 @@ export function AttendanceForm() {
         });
     };
     
-    if (isLoadingStudents || isLoadingAttendance) {
+    if (isLoadingStudents || isLoadingAttendance || !isInitialized.current) {
         return (
             <div className="flex justify-center items-center h-60">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -354,6 +359,8 @@ export function AttendanceForm() {
         </div>
     );
 }
+
+    
 
     
 
