@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useTransition, useEffect, useMemo } from "react";
@@ -16,6 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { exportDailyReportToPDF, type DailyAbsenceWithConsecutive } from "@/lib/pdf-export";
 import { EditablePhoneCell } from "./EditablePhoneCell";
+import { Badge } from "@/components/ui/badge";
 
 export function DailyReport() {
     const { firestore } = useFirebase();
@@ -29,14 +31,12 @@ export function DailyReport() {
     const [studentClass, setStudentClass] = useState<string>('all');
     const [shift, setShift] = useState<string>('all');
     
-    // States for filter options, now populated from a smaller, dedicated query
     const [ensinoOptions, setEnsinoOptions] = useState<string[]>([]);
     const [gradeOptions, setGradeOptions] = useState<string[]>([]);
     const [classOptions, setClassOptions] = useState<string[]>([]);
     const [shiftOptions, setShiftOptions] = useState<string[]>([]);
     const [isLoadingFilters, setIsLoadingFilters] = useState(true);
 
-    // Effect to fetch distinct filter values from the 'students' collection
     useEffect(() => {
         if (!firestore) return;
 
@@ -64,7 +64,7 @@ export function DailyReport() {
         const startTimestamp = Timestamp.fromDate(dateStart);
         
         let q: Query<DocumentData> = query(collection(firestore, 'attendance'), 
-            where('status', '==', 'absent'),
+            where('status', 'in', ['absent', 'justified']),
             where('date', '==', startTimestamp)
         );
 
@@ -96,7 +96,7 @@ export function DailyReport() {
             
             const [currentAbsencesResult, prevDayAbsencesResult] = await Promise.all([
                 getAbsencesForDate(date, currentFilters),
-                getAbsencesForDate(prevDay, { ...currentFilters, grade: 'all', studentClass: 'all', shift: 'all' }) // For consecutive, check student regardless of class
+                getAbsencesForDate(prevDay, { ...currentFilters, grade: 'all', studentClass: 'all', shift: 'all' })
             ]);
             
             const prevDayAbsenceSet = new Set(prevDayAbsencesResult.map(a => a.studentId));
@@ -149,13 +149,23 @@ export function DailyReport() {
         exportDailyReportToPDF(searchedDate, filters, filteredAndSortedAbsences);
     }
     
-    // Automatically search on initial load
     useEffect(() => {
         if (firestore && !isLoadingFilters) {
             handleSearch();
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [firestore, isLoadingFilters]);
+
+    const getStatusBadge = (status: 'present' | 'absent' | 'justified') => {
+        switch (status) {
+            case 'absent':
+                return <Badge variant="destructive">Falta</Badge>;
+            case 'justified':
+                return <Badge variant="secondary">Justificada</Badge>;
+            default:
+                return null;
+        }
+    }
 
     return (
         <Card>
@@ -251,6 +261,7 @@ export function DailyReport() {
                                             <TableHead>Série</TableHead>
                                             <TableHead>Turma</TableHead>
                                             <TableHead>Turno</TableHead>
+                                            <TableHead>Status</TableHead>
                                             <TableHead>Falta Consecutiva?</TableHead>
                                             <TableHead>Telefone</TableHead>
                                         </TableRow>
@@ -262,6 +273,7 @@ export function DailyReport() {
                                                 <TableCell>{record.grade}</TableCell>
                                                 <TableCell>{record.class}</TableCell>
                                                 <TableCell>{record.shift}</TableCell>
+                                                <TableCell>{getStatusBadge(record.status)}</TableCell>
                                                 <TableCell>{record.isConsecutive ? 'Sim' : 'Não'}</TableCell>
                                                 <TableCell>
                                                     <EditablePhoneCell 

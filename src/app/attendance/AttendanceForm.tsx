@@ -6,8 +6,7 @@ import type { Student } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
-import { Save, Loader2, UserCheck, UserX, TriangleAlert } from 'lucide-react';
+import { Save, Loader2, UserCheck, UserX, TriangleAlert, UserCog } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -18,15 +17,17 @@ import { FirestorePermissionError } from '@/firebase/errors';
 import { errorEmitter } from '@/firebase/error-emitter';
 import Link from 'next/link';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 // Definindo o tipo para os alunos com ID
 type StudentWithId = Student & { id: string };
+type AttendanceStatus = 'present' | 'absent' | 'justified';
 
 type AttendanceRecordForSave = {
     studentId: string;
     studentName: string;
     date: Timestamp; // Keep as Timestamp for consistency
-    status: 'present' | 'absent';
+    status: AttendanceStatus;
     grade: string;
     class: string;
     shift: string;
@@ -45,7 +46,7 @@ type GroupedStudents = {
 
 export function AttendanceForm() {
     const { firestore } = useFirebase();
-    const [attendance, setAttendance] = useState<Record<string, 'present' | 'absent'>>({});
+    const [attendance, setAttendance] = useState<Record<string, AttendanceStatus>>({});
     const [pendingGroups, setPendingGroups] = useState<Record<string, boolean>>({});
     const { toast } = useToast();
     const [activeEnsinoTab, setActiveEnsinoTab] = useState<string | undefined>();
@@ -74,17 +75,15 @@ export function AttendanceForm() {
     const { data: todaysAttendance, isLoading: isLoadingAttendance } = useCollection<AttendanceRecordFromDB>(attendanceQuery);
 
     useEffect(() => {
-        // Initialize attendance state only once when students and attendance data are available.
-        // This prevents overwriting user's local changes on data re-fetch (e.g., after coming back online).
         if (students && todaysAttendance && !isInitialized.current) {
-            const initialAttendance: Record<string, 'present' | 'absent'> = {};
+            const initialAttendance: Record<string, AttendanceStatus> = {};
             const todaysAbsenceMap = new Map(todaysAttendance.map(att => [att.studentId, att.status]));
 
             students.forEach(student => {
                 initialAttendance[student.id] = todaysAbsenceMap.get(student.id) || 'present';
             });
             setAttendance(initialAttendance);
-            isInitialized.current = true; // Mark as initialized
+            isInitialized.current = true;
         }
     }, [students, todaysAttendance]);
 
@@ -142,18 +141,15 @@ export function AttendanceForm() {
                 const [aGrade, aClass] = a[0].split(' / ');
                 const [bGrade, bClass] = b[0].split(' / ');
                 
-                // Comparar 'Série' (grade)
                 const gradeCompare = aGrade.localeCompare(bGrade, undefined, { numeric: true });
                 if (gradeCompare !== 0) return gradeCompare;
 
-                // Se a série for a mesma, comparar 'Turma' (class)
                 return aClass.localeCompare(bClass, undefined, { numeric: true });
             })
             .map(([key, students]) => ({ key, students }));
     }, [students, activeEnsinoTab, activeTurnoTab]);
 
     useEffect(() => {
-        // Automatically open the first accordion for the new set of groups
         if (groupedAndSortedStudents.length > 0) {
             setOpenAccordions([groupedAndSortedStudents[0].key]);
         } else {
@@ -162,10 +158,10 @@ export function AttendanceForm() {
     }, [groupedAndSortedStudents]);
 
 
-    const handleToggle = (studentId: string, isPresent: boolean) => {
+    const handleStatusChange = (studentId: string, status: AttendanceStatus) => {
         setAttendance(prev => ({
             ...prev,
-            [studentId]: isPresent ? 'present' : 'absent',
+            [studentId]: status,
         }));
     };
 
@@ -179,14 +175,11 @@ export function AttendanceForm() {
         
         const batch = writeBatch(firestore);
         
-        // Firestore 'in' query supports a maximum of 30 elements
         const idChunks: string[][] = [];
         for (let i = 0; i < studentIdsToSave.length; i += 30) {
             idChunks.push(studentIdsToSave.slice(i, i + 30));
         }
 
-        // 1. First, delete all existing absence records for this group on this day.
-        // This handles cases where a student was marked absent and is now present.
         const deletionPromises = idChunks.map(chunk => {
             const q = query(collection(firestore, "attendance"), 
                 where("date", "==", todayStart), 
@@ -202,16 +195,15 @@ export function AttendanceForm() {
                 });
             });
 
-            // 2. Now, add new records ONLY for students marked as 'absent'.
             studentsToSave.forEach((student) => {
                 const status = attendance[student.id];
                 
-                if (status === 'absent') {
-                     const record: Omit<AttendanceRecordForSave, 'status'> & { status: 'absent' } = {
+                if (status === 'absent' || status === 'justified') {
+                     const record: AttendanceRecordForSave = {
                         studentId: student.id,
                         studentName: student.name,
                         date: todayStart,
-                        status: 'absent', // Only saving absent records
+                        status: status,
                         grade: student.grade,
                         class: student.class,
                         shift: student.shift,
@@ -223,7 +215,6 @@ export function AttendanceForm() {
                 }
             });
 
-            // 3. Commit the batch
             return batch.commit();
         })
         .then(() => {
@@ -271,7 +262,8 @@ export function AttendanceForm() {
     }
 
     const presentCount = Object.values(attendance).filter(status => status === 'present').length;
-    const absentCount = Object.values(attendance).length - presentCount;
+    const absentCount = Object.values(attendance).filter(status => status === 'absent').length;
+    const justifiedCount = Object.values(attendance).filter(status => status === 'justified').length;
 
     return (
         <div className="space-y-6">
@@ -284,14 +276,18 @@ export function AttendanceForm() {
                             ))}
                         </TabsList>
                     </Tabs>
-                    <div className="flex justify-end gap-6 text-sm font-medium">
+                    <div className="flex justify-end gap-4 text-sm font-medium">
                         <div className="flex items-center gap-2" style={{color: 'hsl(142.1 76.2% 36.3%)'}}>
                             <UserCheck className="h-5 w-5" />
-                            Presentes (Total): {presentCount}
+                            Presentes: {presentCount}
                         </div>
                         <div className="flex items-center gap-2" style={{color: 'hsl(0 84.2% 60.2%)'}}>
                             <UserX className="h-5 w-5" />
-                            Ausentes (Total): {absentCount}
+                            Ausentes: {absentCount}
+                        </div>
+                         <div className="flex items-center gap-2 text-blue-600">
+                            <UserCog className="h-5 w-5" />
+                            Justificadas: {justifiedCount}
                         </div>
                     </div>
                 </div>
@@ -320,16 +316,26 @@ export function AttendanceForm() {
                                     {groupStudents.map((student, index) => (
                                         <div key={student.id}>
                                             <div className="flex items-center justify-between p-3 rounded-md hover:bg-accent/30 transition-colors">
-                                                <Label htmlFor={student.id} className="cursor-pointer">
-                                                    <p className="text-base font-medium">{student.name}</p>
-                                                </Label>
-                                                <Switch
-                                                    id={student.id}
-                                                    name={student.id}
-                                                    checked={attendance[student.id] === 'present'}
-                                                    onCheckedChange={(checked) => handleToggle(student.id, checked)}
-                                                    aria-label={`Marcar presença para ${student.name}`}
-                                                />
+                                                <p className="text-base font-medium">{student.name}</p>
+                                                <RadioGroup 
+                                                    defaultValue="present"
+                                                    value={attendance[student.id] || 'present'}
+                                                    onValueChange={(value: AttendanceStatus) => handleStatusChange(student.id, value)}
+                                                    className="flex items-center gap-4"
+                                                >
+                                                    <div className="flex items-center space-x-2">
+                                                        <RadioGroupItem value="present" id={`${student.id}-present`} />
+                                                        <Label htmlFor={`${student.id}-present`}>P</Label>
+                                                    </div>
+                                                    <div className="flex items-center space-x-2">
+                                                        <RadioGroupItem value="absent" id={`${student.id}-absent`} />
+                                                        <Label htmlFor={`${student.id}-absent`}>F</Label>
+                                                    </div>
+                                                    <div className="flex items-center space-x-2">
+                                                        <RadioGroupItem value="justified" id={`${student.id}-justified`} />
+                                                        <Label htmlFor={`${student.id}-justified`}>FJ</Label>
+                                                    </div>
+                                                </RadioGroup>
                                             </div>
                                             {index < groupStudents.length - 1 && <Separator />}
                                         </div>
@@ -359,9 +365,3 @@ export function AttendanceForm() {
         </div>
     );
 }
-
-    
-
-    
-
-    

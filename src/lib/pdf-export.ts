@@ -1,3 +1,4 @@
+
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { format } from 'date-fns';
@@ -94,6 +95,13 @@ const formatTelefone = (telefone?: string) => {
     return telefone.split(',').slice(0, 2).join(', ');
 }
 
+const formatStatus = (status: 'present' | 'absent' | 'justified') => {
+    switch(status) {
+        case 'absent': return 'Falta';
+        case 'justified': return 'Justificada';
+        default: return 'Presente';
+    }
+}
 
 export const exportDailyReportToPDF = (date: Date, filters: Filters, absences: DailyAbsenceWithConsecutive[]) => {
     const doc = new jsPDF({ orientation: 'p' }); // p for portrait
@@ -103,7 +111,6 @@ export const exportDailyReportToPDF = (date: Date, filters: Filters, absences: D
     
     addHeader(doc);
 
-    // Seção de Detalhes do Relatório
     doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
     doc.text('Detalhes do Relatório', margin, 50);
@@ -134,7 +141,7 @@ export const exportDailyReportToPDF = (date: Date, filters: Filters, absences: D
 
     const tableStartY = (doc as any).lastAutoTable.finalY + 10;
 
-    const tableColumn = ["Nome do Aluno", "Série", "Turma", "Turno", "Falta Consecutiva?", "Telefone"];
+    const tableColumn = ["Nome", "Série", "Turma", "Turno", "Status", "Consecutiva?", "Telefone"];
     const tableRows: (string | number)[][] = [];
 
     absences.forEach(record => {
@@ -143,6 +150,7 @@ export const exportDailyReportToPDF = (date: Date, filters: Filters, absences: D
             record.grade,
             record.class,
             record.shift,
+            formatStatus(record.status),
             record.isConsecutive ? "Sim" : "Não",
             formatTelefone(record.telefone),
         ];
@@ -154,7 +162,7 @@ export const exportDailyReportToPDF = (date: Date, filters: Filters, absences: D
         body: tableRows,
         startY: tableStartY,
         headStyles: {
-            fillColor: [41, 128, 185], // Um tom de azul profissional
+            fillColor: [41, 128, 185],
             textColor: [255, 255, 255],
             fontStyle: 'bold',
             fontSize: 9,
@@ -166,12 +174,13 @@ export const exportDailyReportToPDF = (date: Date, filters: Filters, absences: D
             overflow: 'linebreak',
         },
         columnStyles: {
-            0: { cellWidth: 'auto' }, // Nome do Aluno
-            1: { cellWidth: 22 },    // Série
+            0: { cellWidth: 'auto' }, // Nome
+            1: { cellWidth: 18 },    // Série
             2: { cellWidth: 15 },    // Turma
-            3: { cellWidth: 20 },    // Turno
-            4: { cellWidth: 28 },    // Consecutivas
-            5: { cellWidth: 35 },    // Telefone
+            3: { cellWidth: 18 },    // Turno
+            4: { cellWidth: 20 },    // Status
+            5: { cellWidth: 23 },    // Consecutiva
+            6: { cellWidth: 35 },    // Telefone
         },
         alternateRowStyles: {
             fillColor: [245, 245, 245]

@@ -5,8 +5,18 @@ service cloud.firestore {
     // ATENÇÃO: Esta regra permite acesso aberto a todo o seu banco de dados.
     // Qualquer usuário (autenticado ou não) pode ler, escrever e apagar qualquer dado.
     // Isso é altamente inseguro e não é recomendado para produção.
+    
+    // Allow public read/write access to all collections
     match /{document=**} {
       allow read, write: if true;
+    }
+
+    // Example of a more specific rule for the attendance collection
+    match /attendance/{attendanceId} {
+      allow read, write: if true;
+      
+      // Add a validation rule for the 'status' field
+      allow create, update: if request.resource.data.status in ['present', 'absent', 'justified'];
     }
   }
 }

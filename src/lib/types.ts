@@ -1,3 +1,4 @@
+
 import { Timestamp } from 'firebase/firestore';
 
 export interface Student {
@@ -15,7 +16,7 @@ export interface AttendanceRecord {
   studentId: string;
   studentName: string;
   date: string | Timestamp; // YYYY-MM-DD string or Firestore Timestamp
-  status: 'present' | 'absent';
+  status: 'present' | 'absent' | 'justified';
   grade: string;
   class: string;
   shift: string;

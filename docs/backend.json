@@ -61,10 +61,11 @@
         },
         "status": {
           "type": "string",
-          "description": "Indicates whether the student was present or absent.",
+          "description": "Indicates whether the student was present, absent, or their absence was justified.",
           "enum": [
             "present",
-            "absent"
+            "absent",
+            "justified"
           ]
         },
         "ensino": {
