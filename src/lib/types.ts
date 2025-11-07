@@ -31,5 +31,17 @@ export interface UserProfile {
   fullName?: string;
   jobTitle?: string; // Função
   age?: number;
-  avatarUrl?: string;
+  avatarUrl?: string; // Can be a URL or a Base64 data URI
+  bio?: string;
+  dataNascimento?: string; // YYYY-MM-DD
+  telefonePessoal?: string;
+  endereco?: {
+    rua?: string;
+    cidade?: string;
+    estado?: string;
+    cep?: string;
+  };
+  departamento?: string;
+  dataAdmissao?: string; // YYYY-MM-DD
+  emailProfissional?: string;
 }
