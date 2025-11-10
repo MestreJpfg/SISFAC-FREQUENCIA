@@ -16,6 +16,7 @@ const ptSans = PT_Sans({
 export const metadata: Metadata = {
   title: "School Attendance Tracker",
   description: "App para registro de frequência escolar",
+  manifest: "/manifest.json",
 };
 
 export default function RootLayout({
