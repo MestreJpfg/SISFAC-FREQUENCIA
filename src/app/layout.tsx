@@ -14,7 +14,7 @@ const ptSans = PT_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "School Attendance Tracker",
+  title: "SISFAC - Registro Frequencia",
   description: "App para registro de frequência escolar",
   manifest: "/manifest.json",
 };
