@@ -102,12 +102,22 @@ export function StudentManagement() {
 
   const handleAddStudent = async (values: z.infer<typeof studentSchema>) => {
     if (!firestore) return;
+
+    const formattedValues = {
+        ...values,
+        name: values.name.toUpperCase(),
+        ensino: values.ensino.toUpperCase(),
+        grade: values.grade.toUpperCase(),
+        class: values.class.toUpperCase(),
+        shift: values.shift.toUpperCase(),
+    };
+
     startTransition(async () => {
       try {
-        await addDoc(collection(firestore, 'students'), values);
+        await addDoc(collection(firestore, 'students'), formattedValues);
         toast({
           title: 'Sucesso!',
-          description: `Aluno(a) ${values.name} adicionado(a) com sucesso.`,
+          description: `Aluno(a) ${formattedValues.name} adicionado(a) com sucesso.`,
         });
         form.reset();
         fetchStudents(); // Re-fetch students to update dynamic lists
