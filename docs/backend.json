@@ -172,6 +172,45 @@
         "username",
         "password"
       ]
+    },
+    "ActivityLog": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "title": "ActivityLog",
+        "type": "object",
+        "description": "Records user activities like creating, updating, or deleting students.",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "description": "The ID of the user who performed the action."
+          },
+          "username": {
+            "type": "string",
+            "description": "The username of the user who performed the action."
+          },
+          "action": {
+            "type": "string",
+            "enum": ["create", "update", "delete"],
+            "description": "The type of action performed."
+          },
+          "entity": {
+            "type": "string",
+            "description": "The type of entity that was modified (e.g., 'student')."
+          },
+          "entityId": {
+            "type": "string",
+            "description": "The ID of the document that was modified."
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "The server timestamp of when the action occurred."
+          },
+          "details": {
+            "type": "string",
+            "description": "A human-readable description of the change."
+          }
+        },
+        "required": ["userId", "username", "action", "entity", "entityId", "timestamp", "details"]
     }
   },
   "auth": {
@@ -195,6 +234,12 @@
         "$ref": "#/entities/UserProfile"
       },
       "description": "Stores user profile data for personalization."
+    },
+    "/activity_logs/{logId}": {
+        "schema": {
+            "$ref": "#/entities/ActivityLog"
+        },
+        "description": "Stores logs of user activities within the application."
     }
   }
 }

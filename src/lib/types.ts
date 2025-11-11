@@ -46,3 +46,14 @@ export interface UserProfile {
   dataAdmissao?: string; // YYYY-MM-DD
   emailProfissional?: string;
 }
+
+export interface ActivityLog {
+    id?: string;
+    userId: string;
+    username: string;
+    action: 'create' | 'update' | 'delete';
+    entity: string;
+    entityId: string;
+    timestamp: Timestamp;
+    details: string;
+}

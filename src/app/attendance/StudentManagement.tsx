@@ -6,8 +6,8 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useFirebase } from '@/firebase';
-import { collection, addDoc, deleteDoc, doc, query, getDocs, updateDoc } from 'firebase/firestore';
-import type { Student } from '@/lib/types';
+import { collection, addDoc, deleteDoc, doc, query, getDocs, updateDoc, serverTimestamp } from 'firebase/firestore';
+import type { Student, UserProfile } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 
 import { Button } from '@/components/ui/button';
@@ -61,6 +61,14 @@ export function StudentManagement() {
   const [students, setStudents] = useState<StudentWithId[]>([]);
   const [selectedStudent, setSelectedStudent] = useState<StudentWithId | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
+
+  useEffect(() => {
+    const user = localStorage.getItem('userProfile');
+    if (user) {
+        setCurrentUser(JSON.parse(user));
+    }
+  }, []);
   
   const addForm = useForm<z.infer<typeof studentSchema>>({
     resolver: zodResolver(studentSchema),
@@ -126,6 +134,25 @@ export function StudentManagement() {
     };
   }, [students]);
 
+  const logActivity = async (action: 'create' | 'update' | 'delete', entityId: string, details: string) => {
+    if (!firestore || !currentUser) return;
+    try {
+        await addDoc(collection(firestore, 'activity_logs'), {
+            userId: currentUser.id,
+            username: currentUser.username,
+            action,
+            entity: 'student',
+            entityId,
+            timestamp: serverTimestamp(),
+            details,
+        });
+    } catch (error) {
+        console.error("Error logging activity:", error);
+        // Do not block user action if logging fails
+    }
+  };
+
+
   const handleAddStudent = async (values: z.infer<typeof studentSchema>) => {
     if (!firestore) return;
 
@@ -140,7 +167,8 @@ export function StudentManagement() {
 
     startTransition(async () => {
       try {
-        await addDoc(collection(firestore, 'students'), formattedValues);
+        const docRef = await addDoc(collection(firestore, 'students'), formattedValues);
+        await logActivity('create', docRef.id, `Aluno(a) ${formattedValues.name} foi adicionado(a).`);
         toast({
           title: 'Sucesso!',
           description: `Aluno(a) ${formattedValues.name} adicionado(a) com sucesso.`,
@@ -172,7 +200,20 @@ export function StudentManagement() {
     startTransition(async () => {
         try {
             const studentRef = doc(firestore, 'students', selectedStudent.id);
+            const originalData = { ...selectedStudent };
+            
             await updateDoc(studentRef, formattedValues);
+
+            const changes: string[] = [];
+            if (originalData.ensino !== formattedValues.ensino) changes.push(`Ensino: '${originalData.ensino}' -> '${formattedValues.ensino}'`);
+            if (originalData.grade !== formattedValues.grade) changes.push(`Série: '${originalData.grade}' -> '${formattedValues.grade}'`);
+            if (originalData.class !== formattedValues.class) changes.push(`Turma: '${originalData.class}' -> '${formattedValues.class}'`);
+            if (originalData.shift !== formattedValues.shift) changes.push(`Turno: '${originalData.shift}' -> '${formattedValues.shift}'`);
+            if ((originalData.telefone || '') !== (formattedValues.telefone || '')) changes.push(`Telefone alterado.`);
+            
+            const details = changes.length > 0 ? `Aluno(a) ${selectedStudent.name} atualizado(a): ${changes.join(', ')}.` : `Nenhuma alteração detectada para ${selectedStudent.name}.`;
+            await logActivity('update', selectedStudent.id, details);
+
             toast({
                 title: 'Sucesso!',
                 description: `Dados do(a) aluno(a) ${selectedStudent.name} atualizados.`,
@@ -198,6 +239,7 @@ export function StudentManagement() {
     startTransition(async () => {
         try {
             await deleteDoc(doc(firestore, 'students', selectedStudent.id));
+            await logActivity('delete', selectedStudent.id, `Aluno(a) ${selectedStudent.name} foi removido(a).`);
             toast({
                 title: 'Sucesso!',
                 description: `Aluno(a) ${selectedStudent.name} removido(a) com sucesso.`,
