@@ -18,8 +18,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-  DialogFooter,
-  DialogClose
+  DialogFooter
 } from '@/components/ui/dialog';
 import {
   AlertDialog,
@@ -35,8 +34,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { UserPlus, Loader2, Trash2, Search } from 'lucide-react';
+import { UserPlus, Loader2, Trash2 } from 'lucide-react';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { Combobox } from '@/components/ui/combobox';
 
 type StudentWithId = Student & { id: string };
 
@@ -86,6 +86,20 @@ export function StudentManagement() {
     setIsOpen(open);
   }
 
+  const { ensinoOptions, gradeOptions, classOptions, shiftOptions } = useMemo(() => {
+    const unique = (key: keyof Student) => [...new Set(students.map(s => s[key]))]
+        .filter(Boolean)
+        .map(val => ({ label: String(val), value: String(val) }))
+        .sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }));
+
+    return {
+        ensinoOptions: unique('ensino'),
+        gradeOptions: unique('grade'),
+        classOptions: unique('class'),
+        shiftOptions: unique('shift'),
+    };
+  }, [students]);
+
   const handleAddStudent = async (values: z.infer<typeof studentSchema>) => {
     if (!firestore) return;
     startTransition(async () => {
@@ -96,7 +110,7 @@ export function StudentManagement() {
           description: `Aluno(a) ${values.name} adicionado(a) com sucesso.`,
         });
         form.reset();
-        // Maybe close dialog or switch tab, for now just reset form
+        fetchStudents(); // Re-fetch students to update dynamic lists
       } catch (error) {
         console.error("Error adding student: ", error);
         toast({
@@ -110,7 +124,7 @@ export function StudentManagement() {
 
   const handleDeleteStudent = () => {
     if (!firestore || !selectedStudent) return;
-    setIsDeleteDialogOpen(false); // Close confirmation dialog first
+    setIsDeleteDialogOpen(false);
 
     startTransition(async () => {
         try {
@@ -120,7 +134,6 @@ export function StudentManagement() {
                 description: `Aluno(a) ${selectedStudent.name} removido(a) com sucesso.`,
             });
             setSelectedStudent(null);
-            // Refetch students to update the list
             fetchStudents();
         } catch (error) {
             console.error("Error deleting student: ", error);
@@ -160,18 +173,34 @@ export function StudentManagement() {
                     )} />
                     <div className="grid grid-cols-2 gap-4">
                         <FormField control={form.control} name="ensino" render={({ field }) => (
-                            <FormItem><FormLabel>Ensino</FormLabel><FormControl><Input placeholder="Ex: Fundamental" {...field} /></FormControl><FormMessage /></FormItem>
+                            <FormItem className="flex flex-col">
+                                <FormLabel>Ensino</FormLabel>
+                                <Combobox options={ensinoOptions} {...field} placeholder="Selecione ou crie" notFoundText="Nenhum ensino encontrado." />
+                                <FormMessage />
+                            </FormItem>
                         )} />
                          <FormField control={form.control} name="shift" render={({ field }) => (
-                            <FormItem><FormLabel>Turno</FormLabel><FormControl><Input placeholder="Ex: Manhã" {...field} /></FormControl><FormMessage /></FormItem>
+                             <FormItem className="flex flex-col">
+                                <FormLabel>Turno</FormLabel>
+                                <Combobox options={shiftOptions} {...field} placeholder="Selecione ou crie" notFoundText="Nenhum turno encontrado." />
+                                <FormMessage />
+                            </FormItem>
                         )} />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <FormField control={form.control} name="grade" render={({ field }) => (
-                            <FormItem><FormLabel>Série</FormLabel><FormControl><Input placeholder="Ex: 9º Ano" {...field} /></FormControl><FormMessage /></FormItem>
+                           <FormItem className="flex flex-col">
+                                <FormLabel>Série</FormLabel>
+                                <Combobox options={gradeOptions} {...field} placeholder="Selecione ou crie" notFoundText="Nenhuma série encontrada." />
+                                <FormMessage />
+                            </FormItem>
                         )} />
                         <FormField control={form.control} name="class" render={({ field }) => (
-                            <FormItem><FormLabel>Turma</FormLabel><FormControl><Input placeholder="Ex: A" {...field} /></FormControl><FormMessage /></FormItem>
+                           <FormItem className="flex flex-col">
+                                <FormLabel>Turma</FormLabel>
+                                <Combobox options={classOptions} {...field} placeholder="Selecione ou crie" notFoundText="Nenhuma turma encontrada." />
+                                <FormMessage />
+                            </FormItem>
                         )} />
                     </div>
                      <FormField control={form.control} name="telefone" render={({ field }) => (
