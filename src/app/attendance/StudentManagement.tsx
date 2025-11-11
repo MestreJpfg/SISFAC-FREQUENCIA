@@ -1,12 +1,12 @@
 
 "use client";
 
-import { useState, useTransition, useMemo } from 'react';
+import { useState, useTransition, useMemo, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useFirebase } from '@/firebase';
-import { collection, addDoc, deleteDoc, doc, query, getDocs } from 'firebase/firestore';
+import { collection, addDoc, deleteDoc, doc, query, getDocs, updateDoc } from 'firebase/firestore';
 import type { Student } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 
@@ -34,9 +34,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { UserPlus, Loader2, Trash2 } from 'lucide-react';
+import { UserPlus, Loader2, Trash2, Save } from 'lucide-react';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Combobox } from '@/components/ui/combobox';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 type StudentWithId = Student & { id: string };
 
@@ -49,6 +50,9 @@ const studentSchema = z.object({
   telefone: z.string().optional(),
 });
 
+// Separate schema for editing, as name is not editable here
+const editStudentSchema = studentSchema.omit({ name: true });
+
 export function StudentManagement() {
   const { firestore } = useFirebase();
   const { toast } = useToast();
@@ -58,7 +62,7 @@ export function StudentManagement() {
   const [selectedStudent, setSelectedStudent] = useState<StudentWithId | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   
-  const form = useForm<z.infer<typeof studentSchema>>({
+  const addForm = useForm<z.infer<typeof studentSchema>>({
     resolver: zodResolver(studentSchema),
     defaultValues: {
       name: '',
@@ -69,6 +73,26 @@ export function StudentManagement() {
       telefone: '',
     },
   });
+
+  const editForm = useForm<z.infer<typeof editStudentSchema>>({
+    resolver: zodResolver(editStudentSchema),
+  });
+
+  // Effect to reset edit form when a new student is selected
+  useEffect(() => {
+    if (selectedStudent) {
+      editForm.reset({
+        ensino: selectedStudent.ensino,
+        grade: selectedStudent.grade,
+        class: selectedStudent.class,
+        shift: selectedStudent.shift,
+        telefone: selectedStudent.telefone || '',
+      });
+    } else {
+      editForm.reset();
+    }
+  }, [selectedStudent, editForm]);
+
 
   const fetchStudents = async () => {
     if (!firestore) return;
@@ -82,6 +106,8 @@ export function StudentManagement() {
   const onDialogOpenChange = (open: boolean) => {
     if (open) {
       fetchStudents();
+    } else {
+      setSelectedStudent(null); // Clear selection on dialog close
     }
     setIsOpen(open);
   }
@@ -119,7 +145,7 @@ export function StudentManagement() {
           title: 'Sucesso!',
           description: `Aluno(a) ${formattedValues.name} adicionado(a) com sucesso.`,
         });
-        form.reset();
+        addForm.reset();
         fetchStudents(); // Re-fetch students to update dynamic lists
       } catch (error) {
         console.error("Error adding student: ", error);
@@ -131,6 +157,39 @@ export function StudentManagement() {
       }
     });
   };
+
+  const handleUpdateStudent = async (values: z.infer<typeof editStudentSchema>) => {
+    if (!firestore || !selectedStudent) return;
+
+    const formattedValues = {
+        ...values,
+        ensino: values.ensino.toUpperCase(),
+        grade: values.grade.toUpperCase(),
+        class: values.class.toUpperCase(),
+        shift: values.shift.toUpperCase(),
+    };
+    
+    startTransition(async () => {
+        try {
+            const studentRef = doc(firestore, 'students', selectedStudent.id);
+            await updateDoc(studentRef, formattedValues);
+            toast({
+                title: 'Sucesso!',
+                description: `Dados do(a) aluno(a) ${selectedStudent.name} atualizados.`,
+            });
+            fetchStudents();
+            setSelectedStudent(prev => prev ? { ...prev, ...formattedValues } : null);
+        } catch (error) {
+            console.error("Error updating student: ", error);
+            toast({
+              variant: 'destructive',
+              title: 'Erro',
+              description: 'Não foi possível atualizar os dados do aluno.',
+            });
+        }
+    });
+  }
+
 
   const handleDeleteStudent = () => {
     if (!firestore || !selectedStudent) return;
@@ -168,28 +227,28 @@ export function StudentManagement() {
         <DialogContent className="sm:max-w-[525px]">
           <DialogHeader>
             <DialogTitle>Gerenciar Alunos</DialogTitle>
-            <DialogDescription>Adicione ou remova alunos do sistema.</DialogDescription>
+            <DialogDescription>Adicione, edite ou remova alunos do sistema.</DialogDescription>
           </DialogHeader>
           <Tabs defaultValue="add" className="w-full">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="add">Adicionar Aluno</TabsTrigger>
-              <TabsTrigger value="remove">Remover Aluno</TabsTrigger>
+              <TabsTrigger value="edit">Editar / Remover Aluno</TabsTrigger>
             </TabsList>
             <TabsContent value="add">
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit(handleAddStudent)} className="space-y-4 py-4">
-                    <FormField control={form.control} name="name" render={({ field }) => (
+              <Form {...addForm}>
+                <form onSubmit={addForm.handleSubmit(handleAddStudent)} className="space-y-4 py-4">
+                    <FormField control={addForm.control} name="name" render={({ field }) => (
                         <FormItem><FormLabel>Nome Completo</FormLabel><FormControl><Input placeholder="Nome do Aluno" {...field} /></FormControl><FormMessage /></FormItem>
                     )} />
                     <div className="grid grid-cols-2 gap-4">
-                        <FormField control={form.control} name="ensino" render={({ field }) => (
+                        <FormField control={addForm.control} name="ensino" render={({ field }) => (
                             <FormItem className="flex flex-col">
                                 <FormLabel>Ensino</FormLabel>
                                 <Combobox options={ensinoOptions} {...field} placeholder="Selecione ou crie" notFoundText="Nenhum ensino encontrado." />
                                 <FormMessage />
                             </FormItem>
                         )} />
-                         <FormField control={form.control} name="shift" render={({ field }) => (
+                         <FormField control={addForm.control} name="shift" render={({ field }) => (
                              <FormItem className="flex flex-col">
                                 <FormLabel>Turno</FormLabel>
                                 <Combobox options={shiftOptions} {...field} placeholder="Selecione ou crie" notFoundText="Nenhum turno encontrado." />
@@ -198,14 +257,14 @@ export function StudentManagement() {
                         )} />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
-                        <FormField control={form.control} name="grade" render={({ field }) => (
+                        <FormField control={addForm.control} name="grade" render={({ field }) => (
                            <FormItem className="flex flex-col">
                                 <FormLabel>Série</FormLabel>
                                 <Combobox options={gradeOptions} {...field} placeholder="Selecione ou crie" notFoundText="Nenhuma série encontrada." />
                                 <FormMessage />
                             </FormItem>
                         )} />
-                        <FormField control={form.control} name="class" render={({ field }) => (
+                        <FormField control={addForm.control} name="class" render={({ field }) => (
                            <FormItem className="flex flex-col">
                                 <FormLabel>Turma</FormLabel>
                                 <Combobox options={classOptions} {...field} placeholder="Selecione ou crie" notFoundText="Nenhuma turma encontrada." />
@@ -213,7 +272,7 @@ export function StudentManagement() {
                             </FormItem>
                         )} />
                     </div>
-                     <FormField control={form.control} name="telefone" render={({ field }) => (
+                     <FormField control={addForm.control} name="telefone" render={({ field }) => (
                         <FormItem><FormLabel>Telefone (Opcional)</FormLabel><FormControl><Input placeholder="(00) 00000-0000" {...field} /></FormControl><FormMessage /></FormItem>
                     )} />
                   <DialogFooter>
@@ -225,7 +284,7 @@ export function StudentManagement() {
                 </form>
               </Form>
             </TabsContent>
-            <TabsContent value="remove">
+            <TabsContent value="edit">
                 <div className="space-y-4 py-4">
                     <Label>Buscar Aluno</Label>
                      <Command className="rounded-lg border shadow-md">
@@ -247,18 +306,64 @@ export function StudentManagement() {
                     </Command>
 
                     {selectedStudent && (
-                        <div className="p-4 border rounded-md bg-muted/50">
-                            <p className="font-semibold">{selectedStudent.name}</p>
-                            <p className="text-sm text-muted-foreground">{selectedStudent.ensino} - {selectedStudent.grade} {selectedStudent.class} - {selectedStudent.shift}</p>
-                        </div>
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="text-lg">{selectedStudent.name}</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                               <Form {...editForm}>
+                                    <form onSubmit={editForm.handleSubmit(handleUpdateStudent)} className="space-y-4">
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <FormField control={editForm.control} name="ensino" render={({ field }) => (
+                                                <FormItem className="flex flex-col">
+                                                    <FormLabel>Ensino</FormLabel>
+                                                    <Combobox options={ensinoOptions} {...field} placeholder="Selecione ou crie" notFoundText="Nenhum ensino encontrado." />
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )} />
+                                            <FormField control={editForm.control} name="shift" render={({ field }) => (
+                                                <FormItem className="flex flex-col">
+                                                    <FormLabel>Turno</FormLabel>
+                                                    <Combobox options={shiftOptions} {...field} placeholder="Selecione ou crie" notFoundText="Nenhum turno encontrado." />
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )} />
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <FormField control={editForm.control} name="grade" render={({ field }) => (
+                                            <FormItem className="flex flex-col">
+                                                    <FormLabel>Série</FormLabel>
+                                                    <Combobox options={gradeOptions} {...field} placeholder="Selecione ou crie" notFoundText="Nenhuma série encontrada." />
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )} />
+                                            <FormField control={editForm.control} name="class" render={({ field }) => (
+                                            <FormItem className="flex flex-col">
+                                                    <FormLabel>Turma</FormLabel>
+                                                    <Combobox options={classOptions} {...field} placeholder="Selecione ou crie" notFoundText="Nenhuma turma encontrada." />
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )} />
+                                        </div>
+                                        <FormField control={editForm.control} name="telefone" render={({ field }) => (
+                                            <FormItem><FormLabel>Telefone (Opcional)</FormLabel><FormControl><Input placeholder="(00) 00000-0000" {...field} /></FormControl><FormMessage /></FormItem>
+                                        )} />
+                                        <div className="flex justify-end gap-2 pt-4">
+                                            <Button type="button" variant="destructive" onClick={() => setIsDeleteDialogOpen(true)} disabled={isPending}>
+                                                <Trash2 className="mr-2 h-4 w-4" />
+                                                Remover
+                                            </Button>
+                                            <Button type="submit" disabled={isPending || !editForm.formState.isDirty}>
+                                                {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                                                Salvar Alterações
+                                            </Button>
+                                        </div>
+                                    </form>
+                                </Form>
+                            </CardContent>
+                        </Card>
                     )}
                 </div>
-                 <DialogFooter>
-                    <Button variant="destructive" onClick={() => setIsDeleteDialogOpen(true)} disabled={!selectedStudent || isPending}>
-                      {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
-                      Remover Aluno Selecionado
-                    </Button>
-                  </DialogFooter>
             </TabsContent>
           </Tabs>
         </DialogContent>
@@ -268,7 +373,7 @@ export function StudentManagement() {
           <AlertDialogHeader>
             <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
             <AlertDialogDescription>
-              Esta ação não pode ser desfeita. Isso irá remover permanentemente o aluno(a) <span className="font-bold">{selectedStudent?.name}</span> e todos os seus dados do sistema.
+              Esta ação não pode ser desfeita. Isso irá remover permanentemente o aluno(a) <span className="font-bold">{selectedStudent?.name}</span> e todos os seus dados de frequência do sistema.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
