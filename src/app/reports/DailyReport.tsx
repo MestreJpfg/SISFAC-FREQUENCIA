@@ -149,13 +149,6 @@ export function DailyReport() {
         exportDailyReportToPDF(searchedDate, filters, filteredAndSortedAbsences);
     }
     
-    useEffect(() => {
-        if (firestore && !isLoadingFilters) {
-            handleSearch();
-        }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [firestore, isLoadingFilters]);
-
     const getStatusBadge = (status: 'present' | 'absent' | 'justified') => {
         switch (status) {
             case 'absent':
@@ -243,7 +236,7 @@ export function DailyReport() {
                     </div>
                 </div>
 
-                {isPending || (isLoadingFilters && !searchedDate) ? (
+                {isPending ? (
                     <div className="flex justify-center items-center h-60">
                         <Loader2 className="h-8 w-8 animate-spin text-primary" />
                     </div>
