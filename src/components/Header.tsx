@@ -4,7 +4,7 @@
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ClipboardCheck, Users, FileUp, FileText, Menu, UserCog, LogOut } from 'lucide-react';
+import { ClipboardCheck, Users, FileUp, FileText, Menu, UserCog, LogOut, Bus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
@@ -23,6 +23,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 const navLinks: { href: string; label: string; icon: React.ElementType }[] = [
     { href: "/attendance", label: "Registrar Frequência", icon: Users },
     { href: "/reports", label: "Relatórios", icon: FileText },
+    { href: "/transport", label: "Transporte", icon: Bus },
     { href: "/import", label: "Importar Dados", icon: FileUp },
 ];
 

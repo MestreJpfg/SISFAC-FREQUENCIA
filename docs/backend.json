@@ -211,6 +211,53 @@
           }
         },
         "required": ["userId", "username", "action", "entity", "entityId", "timestamp", "details"]
+    },
+    "TransportRecord": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "TransportRecord",
+      "type": "object",
+      "description": "Represents a student's school transportation status.",
+      "properties": {
+        "studentId": {
+          "type": "string",
+          "description": "The ID of the student this record belongs to."
+        },
+        "studentName": {
+          "type": "string",
+          "description": "The name of the student for easier reference."
+        },
+        "usesTransport": {
+          "type": "boolean",
+          "description": "Indicates if the student uses school transportation."
+        },
+        "route": {
+          "type": "string",
+          "description": "The transportation route the student uses.",
+          "enum": ["", "ROTA CURIÓ", "ROTA BARRO DURO", "ROTA ABREULÂNDIA"]
+        },
+        "ensino": {
+          "type": "string",
+          "description": "The education level of the student."
+        },
+        "grade": {
+          "type": "string",
+          "description": "The grade of the student."
+        },
+        "class": {
+          "type": "string",
+          "description": "The class of the student."
+        },
+        "shift": {
+          "type": "string",
+          "description": "The shift of the student."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The server timestamp of when the record was last updated."
+        }
+      },
+      "required": ["studentId", "studentName", "usesTransport", "route", "ensino", "grade", "class", "shift", "updatedAt"]
     }
   },
   "auth": {
@@ -240,6 +287,12 @@
             "$ref": "#/entities/ActivityLog"
         },
         "description": "Stores logs of user activities within the application."
+    },
+    "/transport/{transportId}": {
+      "schema": {
+        "$ref": "#/entities/TransportRecord"
+      },
+      "description": "Stores student transportation records. The document ID should be the same as the studentId for easy lookup."
     }
   }
 }

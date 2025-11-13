@@ -57,3 +57,16 @@ export interface ActivityLog {
     timestamp: Timestamp;
     details: string;
 }
+
+export interface TransportRecord {
+    id?: string; // Document ID (should match studentId)
+    studentId: string;
+    studentName: string;
+    usesTransport: boolean;
+    route: '' | 'ROTA CURIÓ' | 'ROTA BARRO DURO' | 'ROTA ABREULÂNDIA';
+    ensino: string;
+    grade: string;
+    class: string;
+    shift: string;
+    updatedAt: Timestamp;
+}
