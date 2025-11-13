@@ -24,23 +24,32 @@ export function ChatWidget() {
     useEffect(() => {
         // This effect runs when the sheet is opened/closed.
         // It ensures we have the latest user profile info.
-        const storedUser = localStorage.getItem('userProfile');
-        if (storedUser) {
-            setCurrentUser(JSON.parse(storedUser));
-        } else {
-            setCurrentUser(null);
+        if (isOpen) {
+            const storedUser = localStorage.getItem('userProfile');
+            if (storedUser) {
+                setCurrentUser(JSON.parse(storedUser));
+            } else {
+                setCurrentUser(null);
+            }
         }
     }, [isOpen]);
 
+    const handleOpenChange = (open: boolean) => {
+        setIsOpen(open);
+    }
+
     return (
-        <Sheet open={isOpen} onOpenChange={setIsOpen}>
+        <Sheet open={isOpen} onOpenChange={handleOpenChange}>
             <SheetTrigger asChild>
                 <Button className="fixed bottom-24 right-6 h-16 w-16 rounded-full shadow-lg" size="icon">
                     <MessageSquare className="h-8 w-8" />
                     <span className="sr-only">Abrir Chat</span>
                 </Button>
             </SheetTrigger>
-            <SheetContent className="flex flex-col p-0 gap-0 w-full sm:max-w-sm">
+            <SheetContent 
+                className="flex flex-col p-0 gap-0 w-full sm:max-w-sm"
+                onOpenAutoFocus={(e) => e.preventDefault()}
+            >
                  <SheetHeader className="p-4 border-b">
                     <SheetTitle className="flex items-center gap-2">
                         <MessageSquare className="w-6 h-6" /> Chat Geral
