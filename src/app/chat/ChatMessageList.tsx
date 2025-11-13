@@ -63,11 +63,13 @@ export function ChatMessageList({ currentUser }: ChatMessageListProps) {
                             "max-w-xs md:max-w-md rounded-lg px-3 py-2",
                             isCurrentUser ? "bg-primary text-primary-foreground" : "bg-muted"
                         )}>
-                            <p className="text-xs font-semibold">{!isCurrentUser ? msg.username : 'Você'}</p>
-                            <p className="text-sm">{msg.text}</p>
-                            <p className="text-xs opacity-75 mt-1 text-right">
-                               {msg.createdAt ? format(msg.createdAt.toDate(), 'HH:mm', { locale: ptBR }) : ''}
-                            </p>
+                            <div className="flex items-baseline gap-2">
+                                <p className="text-xs font-semibold">{!isCurrentUser ? msg.username : 'Você'}</p>
+                                <p className="text-xs opacity-75">
+                                    {msg.createdAt ? format(msg.createdAt.toDate(), 'HH:mm', { locale: ptBR }) : ''}
+                                </p>
+                            </div>
+                            <p className="text-sm break-words">{msg.text}</p>
                         </div>
                          {isCurrentUser && (
                              <Avatar className="h-8 w-8">
