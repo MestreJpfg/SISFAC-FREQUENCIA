@@ -5,6 +5,7 @@ import { type ReactElement, useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Header } from "@/components/Header";
 import { Loader2 } from "lucide-react";
+import { ChatWidget } from "@/app/chat/ChatWidget";
 
 function AppFooter() {
     return (
@@ -61,6 +62,7 @@ export function AppController({ children }: { children: ReactElement }) {
             <main className="flex-grow container mx-auto p-4 md:p-8">
                 {children}
             </main>
+            <ChatWidget />
             <AppFooter />
         </div>
     );

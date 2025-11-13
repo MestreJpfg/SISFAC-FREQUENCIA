@@ -1,7 +1,7 @@
 
 "use client";
 
-import { FileUp, Users, FileText, ArrowRight, Bus, MessageSquare } from "lucide-react";
+import { FileUp, Users, FileText, ArrowRight, Bus } from "lucide-react";
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import type { UserProfile } from "@/lib/types";
@@ -25,12 +25,6 @@ const allFeatures = [
     description: "Cadastre e gerencie os alunos que utilizam o transporte escolar.",
     icon: <Bus className="h-8 w-8 text-primary" />,
     href: "/transport",
-  },
-  {
-    title: "Chat",
-    description: "Converse em tempo real com outros usuários do sistema.",
-    icon: <MessageSquare className="h-8 w-8 text-primary" />,
-    href: "/chat",
   },
   {
     title: "Importar Alunos",
