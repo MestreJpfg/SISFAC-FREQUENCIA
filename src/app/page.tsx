@@ -1,7 +1,7 @@
 
 "use client";
 
-import { FileUp, Users, FileText, ArrowRight, Bus } from "lucide-react";
+import { FileUp, Users, FileText, ArrowRight, Bus, MessageSquare } from "lucide-react";
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import type { UserProfile } from "@/lib/types";
@@ -15,7 +15,7 @@ const allFeatures = [
     href: "/attendance",
   },
   {
-    title: "Gerar Relatórios",
+    title: "Relatórios",
     description: "Exporte relatórios de ausências diárias em PDF com filtros.",
     icon: <FileText className="h-8 w-8 text-primary" />,
     href: "/reports",
@@ -25,6 +25,12 @@ const allFeatures = [
     description: "Cadastre e gerencie os alunos que utilizam o transporte escolar.",
     icon: <Bus className="h-8 w-8 text-primary" />,
     href: "/transport",
+  },
+  {
+    title: "Chat",
+    description: "Converse em tempo real com outros usuários do sistema.",
+    icon: <MessageSquare className="h-8 w-8 text-primary" />,
+    href: "/chat",
   },
   {
     title: "Importar Alunos",
@@ -57,7 +63,7 @@ export default function Home() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl w-full">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl w-full">
         {allFeatures.map((feature) => (
           <Link href={feature.href} key={feature.title}>
             <Card className="h-full hover:shadow-lg hover:-translate-y-1 transition-transform duration-300 group">

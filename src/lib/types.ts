@@ -70,3 +70,12 @@ export interface TransportRecord {
     shift: string;
     updatedAt: Timestamp;
 }
+
+export interface ChatMessage {
+  id: string;
+  text: string;
+  userId: string;
+  username: string;
+  avatarUrl?: string;
+  createdAt: Timestamp;
+}
