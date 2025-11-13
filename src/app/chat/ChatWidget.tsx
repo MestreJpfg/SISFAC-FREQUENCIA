@@ -100,10 +100,10 @@ export function ChatWidget() {
                 </Button>
             </SheetTrigger>
             <SheetContent 
-                className="flex flex-col p-0 gap-0 w-4/5 sm:max-w-sm"
+                className="flex flex-col p-0 gap-0 w-4/5 sm:max-w-sm rounded-l-lg backdrop-blur-sm"
                 onOpenAutoFocus={handleOpenAutoFocus}
             >
-                 <SheetHeader className="p-4 border-b bg-background/80 backdrop-blur-sm rounded-tl-lg">
+                 <SheetHeader className="p-4 rounded-tl-lg">
                     <SheetTitle className="flex items-center gap-2">
                         <MessageSquare className="w-6 h-6" /> Chat Geral
                     </SheetTitle>
@@ -125,7 +125,7 @@ export function ChatWidget() {
                         <div className="flex-1 overflow-y-auto">
                             <ChatMessageList currentUser={currentUser} />
                         </div>
-                        <div className="p-4 border-t bg-background/80 backdrop-blur-sm">
+                        <div className="p-4">
                             <ChatMessageInput currentUser={currentUser} />
                         </div>
                     </div>
