@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
@@ -8,7 +9,6 @@ import {
   SheetDescription,
   SheetHeader,
   SheetTitle,
-  SheetTrigger,
 } from '@/components/ui/sheet';
 import { MessageSquare, AlertTriangle } from 'lucide-react';
 import { ChatMessageList } from './ChatMessageList';
@@ -20,6 +20,27 @@ import { collection, query, orderBy, where, Timestamp } from 'firebase/firestore
 import { Badge } from '@/components/ui/badge';
 
 const LAST_READ_KEY = 'chatLastReadTimestamp';
+
+const playNotificationSound = () => {
+    try {
+        const audioContext = new (window.AudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(600, audioContext.currentTime);
+        gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+
+        oscillator.start();
+        oscillator.stop(audioContext.currentTime + 0.1);
+    } catch (e) {
+        console.error("Could not play notification sound", e);
+    }
+};
+
 
 export function ChatWidget() {
     const { firestore } = useFirebase();
@@ -57,10 +78,17 @@ export function ChatWidget() {
 
     useEffect(() => {
         if (newMessages && currentUser) {
-            // Count messages not sent by the current user
-            const count = newMessages.filter(msg => msg.userId !== currentUser.id).length;
-            setUnreadCount(count);
+            const newUnreadMessages = newMessages.filter(msg => msg.userId !== currentUser.id);
+            if (newUnreadMessages.length > 0) {
+                // Check if the count is actually increasing before playing sound
+                const newCount = newUnreadMessages.length;
+                if (newCount > unreadCount) {
+                    playNotificationSound();
+                }
+                setUnreadCount(newCount);
+            }
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [newMessages, currentUser]);
 
     const handleOpenChange = (open: boolean) => {
@@ -100,7 +128,7 @@ export function ChatWidget() {
                 </Button>
             </SheetTrigger>
             <SheetContent 
-                className="flex flex-col p-0 gap-0 w-4/5 sm:max-w-sm backdrop-blur-sm rounded-l-lg"
+                className="flex flex-col p-0 gap-0 w-4/5 sm:max-w-sm backdrop-blur-sm"
                 onOpenAutoFocus={handleOpenAutoFocus}
             >
                  <SheetHeader className="p-4">
