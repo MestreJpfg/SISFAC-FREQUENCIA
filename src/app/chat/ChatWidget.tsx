@@ -100,14 +100,14 @@ export function ChatWidget() {
                 </Button>
             </SheetTrigger>
             <SheetContent 
-                className="flex flex-col p-0 gap-0 w-4/5 sm:max-w-sm"
+                className="flex flex-col p-0 gap-0 w-4/5 sm:max-w-sm bg-background/80 backdrop-blur-sm"
                 onOpenAutoFocus={handleOpenAutoFocus}
             >
-                 <SheetHeader className="p-4">
-                    <SheetTitle className="flex items-center gap-2">
+                 <SheetHeader className="p-4 border-b border-border/50">
+                    <SheetTitle className="flex items-center gap-2 text-primary-foreground">
                         <MessageSquare className="w-6 h-6" /> Chat Geral
                     </SheetTitle>
-                    <SheetDescription>Converse em tempo real com outros usuários.</SheetDescription>
+                    <SheetDescription className="text-white/90">Converse em tempo real com outros usuários.</SheetDescription>
                 </SheetHeader>
                 
                 {!currentUser ? (
@@ -125,7 +125,7 @@ export function ChatWidget() {
                         <div className="flex-1 overflow-y-auto">
                             <ChatMessageList currentUser={currentUser} />
                         </div>
-                        <div className="p-4">
+                        <div className="p-4 border-t border-border/50">
                             <ChatMessageInput currentUser={currentUser} />
                         </div>
                     </div>
