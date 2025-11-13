@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useTransition } from 'react';
+import { useState, useEffect, useTransition, ChangeEvent } from 'react';
 import { useFirebase } from '@/firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
@@ -15,14 +15,20 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
+// Define a type for the data that can be updated.
+type EditableUserProfile = Omit<UserProfile, 'id' | 'username' | 'password'>;
+
+
 export function ProfileForm() {
     const { firestore } = useFirebase();
     const { toast } = useToast();
     const [isPending, startTransition] = useTransition();
     const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+    const [formData, setFormData] = useState<Partial<EditableUserProfile>>({});
     const [isLoading, setIsLoading] = useState(true);
     const [imagePreview, setImagePreview] = useState<string | null>(null);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const [isDirty, setIsDirty] = useState(false);
 
     useEffect(() => {
         setIsLoading(true);
@@ -35,6 +41,7 @@ export function ProfileForm() {
                     if (docSnap.exists()) {
                         const userData = { id: docSnap.id, ...docSnap.data() } as UserProfile;
                         setUserProfile(userData);
+                        setFormData(userData); // Initialize form data with user data
                         if(userData.avatarUrl) {
                             setImagePreview(userData.avatarUrl)
                         }
@@ -54,11 +61,32 @@ export function ProfileForm() {
         const file = event.target.files?.[0];
         if (file) {
             setSelectedFile(file);
+            setIsDirty(true);
             const reader = new FileReader();
             reader.onloadend = () => {
                 setImagePreview(reader.result as string);
+                setFormData(prev => ({...prev, avatarUrl: reader.result as string}));
             };
             reader.readAsDataURL(file);
+        }
+    };
+    
+    const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+        const { name, value } = e.target;
+        setIsDirty(true);
+
+        if (name.includes('.')) {
+            const [parent, child] = name.split('.');
+            setFormData(prev => ({
+                ...prev,
+                [parent]: {
+                    // @ts-ignore
+                    ...prev[parent],
+                    [child]: value,
+                }
+            }));
+        } else {
+            setFormData(prev => ({ ...prev, [name]: value }));
         }
     };
 
@@ -68,40 +96,18 @@ export function ProfileForm() {
         if (!firestore || !userProfile) return;
 
         startTransition(async () => {
-            const formData = new FormData(event.currentTarget);
-            
-            let newAvatarUrl = userProfile.avatarUrl;
-            if (selectedFile) {
-                newAvatarUrl = imagePreview!;
-            }
-
-            const updatedData: Partial<UserProfile> = {
-                fullName: formData.get('fullName') as string,
-                jobTitle: formData.get('jobTitle') as string,
-                age: Number(formData.get('age')),
-                avatarUrl: newAvatarUrl,
-                bio: formData.get('bio') as string,
-                dataNascimento: formData.get('dataNascimento') as string,
-                telefonePessoal: formData.get('telefonePessoal') as string,
-                endereco: {
-                    rua: formData.get('endereco.rua') as string,
-                    cidade: formData.get('endereco.cidade') as string,
-                    estado: formData.get('endereco.estado') as string,
-                    cep: formData.get('endereco.cep') as string,
-                },
-                departamento: formData.get('departamento') as string,
-                dataAdmissao: formData.get('dataAdmissao') as string,
-                emailProfissional: formData.get('emailProfissional') as string,
-            };
-
             try {
                 const userRef = doc(firestore, 'users', userProfile.id);
-                await updateDoc(userRef, updatedData);
+                // We send the entire formData object which has been kept in sync
+                await updateDoc(userRef, formData);
 
-                const updatedProfileInStorage = { ...userProfile, ...updatedData };
+                const updatedProfileInStorage = { ...userProfile, ...formData };
                 localStorage.setItem('userProfile', JSON.stringify(updatedProfileInStorage));
                 window.dispatchEvent(new CustomEvent('local-storage-changed'));
+                
                 setUserProfile(updatedProfileInStorage);
+                setIsDirty(false); // Reset dirty state after successful save
+                setSelectedFile(null); // Clear selected file
 
                 toast({ title: 'Sucesso', description: 'Seu perfil foi atualizado.' });
             } catch (error) {
@@ -154,7 +160,7 @@ export function ProfileForm() {
                             accept="image/*"
                             onChange={handleFileChange}
                         />
-                         <p className="text-xs text-muted-foreground">Selecione uma imagem para seu perfil (formato Base64).</p>
+                         <p className="text-xs text-muted-foreground">Selecione uma nova imagem para seu perfil.</p>
                     </div>
                 </CardHeader>
                 <CardContent>
@@ -177,42 +183,42 @@ export function ProfileForm() {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="space-y-2">
                                     <Label htmlFor="fullName">Nome Completo</Label>
-                                    <Input id="fullName" name="fullName" defaultValue={userProfile.fullName} placeholder="Seu nome completo"/>
+                                    <Input id="fullName" name="fullName" value={formData.fullName || ''} onChange={handleInputChange} placeholder="Seu nome completo"/>
                                 </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="age">Idade</Label>
-                                    <Input id="age" name="age" type="number" defaultValue={userProfile.age} placeholder="Sua idade"/>
+                                    <Input id="age" name="age" type="number" value={formData.age || ''} onChange={handleInputChange} placeholder="Sua idade"/>
                                 </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="dataNascimento">Data de Nascimento</Label>
-                                    <Input id="dataNascimento" name="dataNascimento" type="date" defaultValue={userProfile.dataNascimento}/>
+                                    <Input id="dataNascimento" name="dataNascimento" type="date" value={formData.dataNascimento || ''} onChange={handleInputChange}/>
                                 </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="telefonePessoal">Telefone Pessoal</Label>
-                                    <Input id="telefonePessoal" name="telefonePessoal" defaultValue={userProfile.telefonePessoal} placeholder="(00) 90000-0000"/>
+                                    <Input id="telefonePessoal" name="telefonePessoal" value={formData.telefonePessoal || ''} onChange={handleInputChange} placeholder="(00) 90000-0000"/>
                                 </div>
                             </div>
                             <div className="space-y-2">
                                 <Label htmlFor="bio">Biografia</Label>
-                                <Textarea id="bio" name="bio" defaultValue={userProfile.bio} placeholder="Conte um pouco sobre você..." />
+                                <Textarea id="bio" name="bio" value={formData.bio || ''} onChange={handleInputChange} placeholder="Conte um pouco sobre você..." />
                             </div>
                              <h4 className="text-md font-semibold pt-4 border-b">Endereço</h4>
                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                  <div className="space-y-2 md:col-span-2">
                                      <Label htmlFor="endereco.rua">Rua e Número</Label>
-                                     <Input id="endereco.rua" name="endereco.rua" defaultValue={userProfile.endereco?.rua} placeholder="Ex: Rua das Flores, 123"/>
+                                     <Input id="endereco.rua" name="endereco.rua" value={formData.endereco?.rua || ''} onChange={handleInputChange} placeholder="Ex: Rua das Flores, 123"/>
                                  </div>
                                  <div className="space-y-2">
                                      <Label htmlFor="endereco.cidade">Cidade</Label>
-                                     <Input id="endereco.cidade" name="endereco.cidade" defaultValue={userProfile.endereco?.cidade} placeholder="Sua cidade"/>
+                                     <Input id="endereco.cidade" name="endereco.cidade" value={formData.endereco?.cidade || ''} onChange={handleInputChange} placeholder="Sua cidade"/>
                                  </div>
                                  <div className="space-y-2">
                                      <Label htmlFor="endereco.estado">Estado</Label>
-                                     <Input id="endereco.estado" name="endereco.estado" defaultValue={userProfile.endereco?.estado} placeholder="Seu estado"/>
+                                     <Input id="endereco.estado" name="endereco.estado" value={formData.endereco?.estado || ''} onChange={handleInputChange} placeholder="Seu estado"/>
                                  </div>
                                   <div className="space-y-2">
                                      <Label htmlFor="endereco.cep">CEP</Label>
-                                     <Input id="endereco.cep" name="endereco.cep" defaultValue={userProfile.endereco?.cep} placeholder="00000-000"/>
+                                     <Input id="endereco.cep" name="endereco.cep" value={formData.endereco?.cep || ''} onChange={handleInputChange} placeholder="00000-000"/>
                                  </div>
                              </div>
                         </CardContent>
@@ -225,19 +231,19 @@ export function ProfileForm() {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="space-y-2">
                                     <Label htmlFor="jobTitle">Função</Label>
-                                    <Input id="jobTitle" name="jobTitle" defaultValue={userProfile.jobTitle} placeholder="Sua função na escola" />
+                                    <Input id="jobTitle" name="jobTitle" value={formData.jobTitle || ''} onChange={handleInputChange} placeholder="Sua função na escola" />
                                 </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="departamento">Departamento</Label>
-                                    <Input id="departamento" name="departamento" defaultValue={userProfile.departamento} placeholder="Ex: Coordenação Pedagógica" />
+                                    <Input id="departamento" name="departamento" value={formData.departamento || ''} onChange={handleInputChange} placeholder="Ex: Coordenação Pedagógica" />
                                 </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="dataAdmissao">Data de Admissão</Label>
-                                    <Input id="dataAdmissao" name="dataAdmissao" type="date" defaultValue={userProfile.dataAdmissao}/>
+                                    <Input id="dataAdmissao" name="dataAdmissao" type="date" value={formData.dataAdmissao || ''} onChange={handleInputChange}/>
                                 </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="emailProfissional">Email Profissional</Label>
-                                    <Input id="emailProfissional" name="emailProfissional" type="email" defaultValue={userProfile.emailProfissional} placeholder="seu.nome@escola.com"/>
+                                    <Input id="emailProfissional" name="emailProfissional" type="email" value={formData.emailProfissional || ''} onChange={handleInputChange} placeholder="seu.nome@escola.com"/>
                                 </div>
                             </div>
                         </CardContent>
@@ -245,7 +251,7 @@ export function ProfileForm() {
                 </TabsContent>
             </Tabs>
             
-            <Button type="submit" className="w-full" disabled={isPending}>
+            <Button type="submit" className="w-full" disabled={isPending || !isDirty}>
                 {isPending ? <Loader2 className="animate-spin" /> : <Save className="mr-2" />}
                 Salvar Alterações
             </Button>
