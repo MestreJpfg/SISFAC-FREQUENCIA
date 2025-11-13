@@ -4,14 +4,14 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
-import { MessageSquare, AlertTriangle, X } from 'lucide-react';
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui/sheet';
+import { MessageSquare, AlertTriangle } from 'lucide-react';
 import { ChatMessageList } from './ChatMessageList';
 import { ChatMessageInput } from './ChatMessageInput';
 import type { UserProfile } from '@/lib/types';
@@ -22,6 +22,8 @@ export function ChatWidget() {
     const [isOpen, setIsOpen] = useState(false);
 
     useEffect(() => {
+        // This effect runs when the sheet is opened/closed.
+        // It ensures we have the latest user profile info.
         const storedUser = localStorage.getItem('userProfile');
         if (storedUser) {
             setCurrentUser(JSON.parse(storedUser));
@@ -31,20 +33,20 @@ export function ChatWidget() {
     }, [isOpen]);
 
     return (
-        <Dialog open={isOpen} onOpenChange={setIsOpen}>
-            <DialogTrigger asChild>
+        <Sheet open={isOpen} onOpenChange={setIsOpen}>
+            <SheetTrigger asChild>
                 <Button className="fixed bottom-24 right-6 h-16 w-16 rounded-full shadow-lg" size="icon">
                     <MessageSquare className="h-8 w-8" />
                     <span className="sr-only">Abrir Chat</span>
                 </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px] h-[70vh] flex flex-col p-0 gap-0">
-                 <DialogHeader className="p-4 border-b">
-                    <DialogTitle className="flex items-center gap-2">
+            </SheetTrigger>
+            <SheetContent className="flex flex-col p-0 gap-0 w-full sm:max-w-sm">
+                 <SheetHeader className="p-4 border-b">
+                    <SheetTitle className="flex items-center gap-2">
                         <MessageSquare className="w-6 h-6" /> Chat Geral
-                    </DialogTitle>
-                    <DialogDescription>Converse em tempo real com outros usuários.</DialogDescription>
-                </DialogHeader>
+                    </SheetTitle>
+                    <SheetDescription>Converse em tempo real com outros usuários.</SheetDescription>
+                </SheetHeader>
                 
                 {!currentUser ? (
                      <div className="flex items-center justify-center h-full p-4">
@@ -61,12 +63,12 @@ export function ChatWidget() {
                         <div className="flex-1 overflow-y-auto">
                             <ChatMessageList currentUser={currentUser} />
                         </div>
-                        <div className="p-4 border-t">
+                        <div className="p-4 border-t bg-background">
                             <ChatMessageInput currentUser={currentUser} />
                         </div>
                     </>
                 )}
-            </DialogContent>
-        </Dialog>
+            </SheetContent>
+        </Sheet>
     );
 }
