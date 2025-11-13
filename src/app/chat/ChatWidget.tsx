@@ -9,6 +9,7 @@ import {
   SheetDescription,
   SheetHeader,
   SheetTitle,
+  SheetTrigger,
 } from '@/components/ui/sheet';
 import { MessageSquare, AlertTriangle } from 'lucide-react';
 import { ChatMessageList } from './ChatMessageList';
@@ -23,7 +24,7 @@ const LAST_READ_KEY = 'chatLastReadTimestamp';
 
 const playNotificationSound = () => {
     try {
-        const audioContext = new (window.AudioContext)();
+        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
         const oscillator = audioContext.createOscillator();
         const gainNode = audioContext.createGain();
 
@@ -128,11 +129,11 @@ export function ChatWidget() {
                 </Button>
             </SheetTrigger>
             <SheetContent 
-                className="flex flex-col p-0 gap-0 w-4/5 sm:max-w-sm backdrop-blur-sm"
+                className="flex flex-col p-0 gap-0 w-4/5 sm:max-w-sm"
                 onOpenAutoFocus={handleOpenAutoFocus}
             >
                  <SheetHeader className="p-4">
-                    <SheetTitle className="flex items-center gap-2 text-primary-foreground">
+                    <SheetTitle className="flex items-center gap-2">
                         <MessageSquare className="w-6 h-6" /> Chat Geral
                     </SheetTitle>
                     <SheetDescription className="text-white/90">Converse em tempo real com outros usuários.</SheetDescription>
