@@ -6,6 +6,8 @@ import Link from "next/link";
 import { useState, useEffect } from "react";
 import type { UserProfile } from "@/lib/types";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Separator } from "@/components/ui/separator";
 
 const allFeatures = [
   {
@@ -20,7 +22,7 @@ const allFeatures = [
     icon: <FileText className="h-8 w-8 text-primary" />,
     href: "/reports",
   },
-    {
+  {
     title: "Transporte Escolar",
     description: "Cadastre e gerencie os alunos que utilizam o transporte escolar.",
     icon: <Bus className="h-8 w-8 text-primary" />,
@@ -46,7 +48,7 @@ export default function Home() {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[calc(100vh-200px)] text-center">
-      <div className="space-y-4 mb-12">
+      <div className="space-y-4 mb-8">
         <h1 className="text-4xl font-bold tracking-tight font-headline sm:text-5xl md:text-6xl">
           SISFAC - FREQUÊNCIA
         </h1>
@@ -55,6 +57,30 @@ export default function Home() {
           <br />
           Selecione uma das opções abaixo para começar a gerenciar a frequência.
         </p>
+      </div>
+
+      <div className="mb-12 w-full max-w-2xl">
+        <TooltipProvider>
+            <div className="flex justify-center items-center gap-4 py-4 px-6 rounded-full bg-card border">
+                 {allFeatures.map((feature, index) => (
+                     <React.Fragment key={feature.title}>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Link href={feature.href}>
+                                    <div className="p-3 rounded-full bg-primary/10 hover:bg-primary/20 transition-colors">
+                                        {feature.icon}
+                                    </div>
+                                </Link>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                <p>{feature.title}</p>
+                            </TooltipContent>
+                        </Tooltip>
+                        {index < allFeatures.length - 1 && <Separator orientation="vertical" className="h-8" />}
+                    </React.Fragment>
+                 ))}
+            </div>
+        </TooltipProvider>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl w-full">
