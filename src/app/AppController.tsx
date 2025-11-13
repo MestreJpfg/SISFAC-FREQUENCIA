@@ -9,7 +9,7 @@ import { ChatWidget } from "@/app/chat/ChatWidget";
 
 function AppFooter() {
     return (
-        <footer className="py-4 md:py-6 border-t">
+        <footer className="py-4 md:py-6 border-t fixed bottom-0 left-0 right-0 z-10 bg-card">
             <div className="container mx-auto px-4 md:px-8 text-center text-sm text-muted-foreground">
                 <p>&copy; {new Date().getFullYear()} Desenvolvido por @MestreJp. Todos os direitos reservados.</p>
             </div>
@@ -48,7 +48,7 @@ export function AppController({ children }: { children: ReactElement }) {
     if (isPublicPage) {
         return (
              <div className="min-h-screen flex flex-col">
-                <main className="flex-grow container mx-auto p-4 md:p-8">
+                <main className="flex-grow container mx-auto p-4 md:p-8 pb-24">
                     {children}
                 </main>
                 <AppFooter />
@@ -59,7 +59,7 @@ export function AppController({ children }: { children: ReactElement }) {
     return (
         <div className="min-h-screen flex flex-col">
             <Header />
-            <main className="flex-grow container mx-auto p-4 md:p-8">
+            <main className="flex-grow container mx-auto p-4 md:p-8 pb-24">
                 {children}
             </main>
             <ChatWidget />
