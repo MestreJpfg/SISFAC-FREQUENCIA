@@ -21,9 +21,9 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 const navLinks: { href: string; label: string; icon: React.ElementType }[] = [
-    { href: "/import", label: "Importar Dados", icon: FileUp },
     { href: "/attendance", label: "Registrar Frequência", icon: Users },
     { href: "/reports", label: "Relatórios", icon: FileText },
+    { href: "/import", label: "Importar Dados", icon: FileUp },
 ];
 
 export function Header() {
