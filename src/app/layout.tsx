@@ -5,7 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { FirebaseClientProvider } from "@/firebase/client-provider";
 import { cn } from "@/lib/utils";
 import { ReactElement, Suspense } from "react";
-import { AppController } from "@/components/AppController";
+import { AppController } from "@/app/AppController";
 
 const ptSans = PT_Sans({
   subsets: ["latin"],
