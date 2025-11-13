@@ -14,29 +14,67 @@ import {
 import { MessageSquare, AlertTriangle } from 'lucide-react';
 import { ChatMessageList } from './ChatMessageList';
 import { ChatMessageInput } from './ChatMessageInput';
-import type { UserProfile } from '@/lib/types';
+import type { UserProfile, ChatMessage } from '@/lib/types';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, query, orderBy, where, Timestamp } from 'firebase/firestore';
+import { Badge } from '@/components/ui/badge';
+
+const LAST_READ_KEY = 'chatLastReadTimestamp';
 
 export function ChatWidget() {
+    const { firestore } = useFirebase();
     const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
     const [isOpen, setIsOpen] = useState(false);
+    const [unreadCount, setUnreadCount] = useState(0);
     const contentRef = useRef<HTMLDivElement>(null);
+    const [lastReadTimestamp, setLastReadTimestamp] = useState<Timestamp | null>(() => {
+        if (typeof window !== 'undefined') {
+            const savedTimestamp = localStorage.getItem(LAST_READ_KEY);
+            return savedTimestamp ? new Timestamp(parseInt(savedTimestamp, 10), 0) : null;
+        }
+        return null;
+    });
+
+    const messagesQuery = useMemoFirebase(() => {
+        if (!firestore || !lastReadTimestamp || isOpen) return null; // Only query when closed
+        return query(
+            collection(firestore, 'chatMessages'),
+            where('createdAt', '>', lastReadTimestamp)
+        );
+    }, [firestore, lastReadTimestamp, isOpen]);
+
+    const { data: newMessages } = useCollection<ChatMessage>(messagesQuery);
 
     useEffect(() => {
-        // This effect runs when the sheet is opened/closed.
-        // It ensures we have the latest user profile info.
-        if (isOpen) {
-            const storedUser = localStorage.getItem('userProfile');
-            if (storedUser) {
-                setCurrentUser(JSON.parse(storedUser));
-            } else {
-                setCurrentUser(null);
-            }
+        const storedUser = localStorage.getItem('userProfile');
+        if (storedUser) {
+            const parsedUser = JSON.parse(storedUser);
+            setCurrentUser(parsedUser);
+        } else {
+            setCurrentUser(null);
         }
     }, [isOpen]);
 
+    useEffect(() => {
+        if (newMessages && currentUser) {
+            // Count messages not sent by the current user
+            const count = newMessages.filter(msg => msg.userId !== currentUser.id).length;
+            setUnreadCount(count);
+        }
+    }, [newMessages, currentUser]);
+
     const handleOpenChange = (open: boolean) => {
         setIsOpen(open);
+        if (open) {
+            // When chat opens, reset unread count and update timestamp
+            setUnreadCount(0);
+            const now = Timestamp.now();
+            setLastReadTimestamp(now);
+            if (typeof window !== 'undefined') {
+                localStorage.setItem(LAST_READ_KEY, now.seconds.toString());
+            }
+        }
     }
 
     const handleOpenAutoFocus = (e: Event) => {
@@ -51,6 +89,14 @@ export function ChatWidget() {
             <SheetTrigger asChild>
                 <Button className="fixed bottom-24 right-6 h-16 w-16 rounded-full shadow-lg" size="icon">
                     <MessageSquare className="h-8 w-8" />
+                    {unreadCount > 0 && (
+                        <Badge
+                            variant="destructive"
+                            className="absolute -top-1 -right-1 h-6 w-6 justify-center rounded-full p-0"
+                        >
+                            {unreadCount}
+                        </Badge>
+                    )}
                     <span className="sr-only">Abrir Chat</span>
                 </Button>
             </SheetTrigger>
