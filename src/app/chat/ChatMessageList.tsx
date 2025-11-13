@@ -61,7 +61,7 @@ export function ChatMessageList({ currentUser }: ChatMessageListProps) {
                         )}
                         <div className={cn(
                             "max-w-xs md:max-w-md rounded-lg px-3 py-2",
-                            isCurrentUser ? "text-primary-foreground" : ""
+                            isCurrentUser ? "bg-primary text-primary-foreground" : "bg-muted"
                         )}>
                             <div className="flex items-baseline gap-2">
                                 <p className="text-xs font-semibold">{!isCurrentUser ? msg.username : 'Você'}</p>
@@ -69,7 +69,7 @@ export function ChatMessageList({ currentUser }: ChatMessageListProps) {
                                     {msg.createdAt ? format(msg.createdAt.toDate(), 'HH:mm', { locale: ptBR }) : ''}
                                 </p>
                             </div>
-                            <p className={cn("text-sm break-words", isCurrentUser ? "font-bold" : "")}>{msg.text}</p>
+                            <p className="text-sm break-words">{msg.text}</p>
                         </div>
                          {isCurrentUser && (
                              <Avatar className="h-8 w-8">

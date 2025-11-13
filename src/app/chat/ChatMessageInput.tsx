@@ -56,7 +56,7 @@ export function ChatMessageInput({ currentUser }: ChatMessageInputProps) {
                 placeholder="Digite sua mensagem..."
                 autoComplete="off"
                 disabled={isSending}
-                className="bg-transparent border-border/50 focus-visible:ring-primary"
+                className="bg-background border-border/50 focus-visible:ring-primary"
             />
             <Button type="submit" size="icon" disabled={isSending || !message.trim()}>
                 {isSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
