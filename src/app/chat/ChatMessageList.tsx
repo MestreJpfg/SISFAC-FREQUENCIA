@@ -60,11 +60,11 @@ export function ChatMessageList({ currentUser }: ChatMessageListProps) {
                             </Avatar>
                         )}
                         <div className={cn(
-                            "max-w-xs md:max-w-md rounded-lg px-4 py-2",
+                            "max-w-xs md:max-w-md rounded-lg px-3 py-2",
                             isCurrentUser ? "bg-primary text-primary-foreground" : "bg-muted"
                         )}>
-                            <p className="text-sm font-semibold">{!isCurrentUser ? msg.username : 'Você'}</p>
-                            <p className="text-base">{msg.text}</p>
+                            <p className="text-xs font-semibold">{!isCurrentUser ? msg.username : 'Você'}</p>
+                            <p className="text-sm">{msg.text}</p>
                             <p className="text-xs opacity-75 mt-1 text-right">
                                {msg.createdAt ? format(msg.createdAt.toDate(), 'HH:mm', { locale: ptBR }) : ''}
                             </p>
