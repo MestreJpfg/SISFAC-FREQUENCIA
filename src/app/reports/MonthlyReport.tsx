@@ -20,6 +20,7 @@ type MonthlyAbsenceSummary = {
     grade: string;
     class: string;
     shift: string;
+    telefone: string;
     totalAbsences: number;
     justifiedAbsences: number;
     unjustifiedAbsences: number;
@@ -33,6 +34,13 @@ const months = Array.from({ length: 12 }, (_, i) => ({
 const currentYear = getYear(new Date());
 const years = Array.from({ length: 5 }, (_, i) => currentYear - i);
 
+const limitOptions = [
+    { value: '10', label: 'Top 10' },
+    { value: '50', label: 'Top 50' },
+    { value: '100', label: 'Top 100' },
+    { value: 'all', label: 'Todos' },
+];
+
 export function MonthlyReport() {
     const { firestore } = useFirebase();
     const [month, setMonth] = useState<number>(getMonth(new Date()));
@@ -45,6 +53,7 @@ export function MonthlyReport() {
     const [grade, setGrade] = useState<string>('all');
     const [studentClass, setStudentClass] = useState<string>('all');
     const [shift, setShift] = useState<string>('all');
+    const [limit, setLimit] = useState<string>('50');
     
     const [ensinoOptions, setEnsinoOptions] = useState<string[]>([]);
     const [gradeOptions, setGradeOptions] = useState<string[]>([]);
@@ -106,6 +115,7 @@ export function MonthlyReport() {
                         grade: record.grade,
                         class: record.class,
                         shift: record.shift,
+                        telefone: record.telefone || '-',
                         totalAbsences: 0,
                         justifiedAbsences: 0,
                         unjustifiedAbsences: 0,
@@ -119,10 +129,20 @@ export function MonthlyReport() {
                 }
             });
 
-            const sortedAbsences = Object.values(summary).sort((a, b) => b.totalAbsences - a.totalAbsences);
+            let sortedAbsences = Object.values(summary).sort((a, b) => b.totalAbsences - a.totalAbsences);
+
+            if (limit !== 'all') {
+                sortedAbsences = sortedAbsences.slice(0, parseInt(limit));
+            }
+            
             setAbsences(sortedAbsences);
         });
     };
+
+    const formatTelefone = (telefone?: string) => {
+        if (!telefone || telefone === '-') return '-';
+        return telefone.split(',').slice(0, 2).join(', ');
+    }
 
     return (
         <Card>
@@ -132,7 +152,7 @@ export function MonthlyReport() {
             </CardHeader>
             <CardContent className="space-y-6">
                 <div className="space-y-4">
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 items-end">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-4 items-end">
                          <div className="col-span-1">
                              <Label>Mês</Label>
                             <Select value={String(month)} onValueChange={(v) => setMonth(Number(v))}>
@@ -191,6 +211,15 @@ export function MonthlyReport() {
                                 </SelectContent>
                             </Select>
                         </div>
+                         <div>
+                            <Label>Exibir</Label>
+                            <Select value={limit} onValueChange={setLimit}>
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    {limitOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </div>
                     </div>
                      <div className="flex flex-col sm:flex-row gap-2">
                         <Button onClick={handleSearch} disabled={isPending || isLoadingFilters} className="w-full sm:w-auto">
@@ -217,7 +246,7 @@ export function MonthlyReport() {
                                             <TableHead>Posição</TableHead>
                                             <TableHead>Nome do Aluno</TableHead>
                                             <TableHead>Série/Turma</TableHead>
-                                            <TableHead>Turno</TableHead>
+                                            <TableHead>Telefone</TableHead>
                                             <TableHead className="text-center">Faltas Justificadas</TableHead>
                                             <TableHead className="text-center">Faltas Não Justificadas</TableHead>
                                             <TableHead className="text-center font-bold">Total de Faltas</TableHead>
@@ -229,7 +258,7 @@ export function MonthlyReport() {
                                                 <TableCell className="font-medium text-center">{index + 1}º</TableCell>
                                                 <TableCell className="font-medium">{record.studentName}</TableCell>
                                                 <TableCell>{`${record.grade} / ${record.class}`}</TableCell>
-                                                <TableCell>{record.shift}</TableCell>
+                                                <TableCell>{formatTelefone(record.telefone)}</TableCell>
                                                 <TableCell className="text-center">{record.justifiedAbsences}</TableCell>
                                                 <TableCell className="text-center">{record.unjustifiedAbsences}</TableCell>
                                                 <TableCell className="text-center font-bold text-lg">{record.totalAbsences}</TableCell>
@@ -245,3 +274,5 @@ export function MonthlyReport() {
         </Card>
     );
 }
+
+    
