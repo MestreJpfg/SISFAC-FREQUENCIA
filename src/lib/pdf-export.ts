@@ -13,6 +13,18 @@ type Filters = {
     shift: string;
 }
 
+export type MonthlyAbsenceSummary = {
+    studentId: string;
+    studentName: string;
+    grade: string;
+    class: string;
+    shift: string;
+    telefone: string;
+    totalAbsences: number;
+    justifiedAbsences: number;
+    unjustifiedAbsences: number;
+}
+
 export type DailyAbsenceWithConsecutive = AttendanceRecord & {
     isConsecutive: boolean;
 };
@@ -21,7 +33,7 @@ export type DailyAbsenceWithConsecutive = AttendanceRecord & {
 const formatDate = (date: Date) => format(date, "dd 'de' MMMM 'de' yyyy", { locale: ptBR });
 const formatFilter = (filter: string) => filter === 'all' ? 'Todos' : filter;
 
-const addHeader = (doc: jsPDF) => {
+const addHeader = (doc: jsPDF, title: string) => {
     const pageWidth = doc.internal.pageSize.getWidth();
     const margin = 10;
 
@@ -37,7 +49,7 @@ const addHeader = (doc: jsPDF) => {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(18);
     doc.setTextColor(40);
-    doc.text('Relatório Diário de Ausências', titleX, 20);
+    doc.text(title, titleX, 20);
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(11);
@@ -109,7 +121,7 @@ export const exportDailyReportToPDF = (date: Date, filters: Filters, absences: D
     const fileName = `Relatorio_Diario_Ausencias_${format(date, 'yyyy-MM-dd')}.pdf`;
     const margin = 10;
     
-    addHeader(doc);
+    addHeader(doc, 'Relatório Diário de Ausências');
 
     doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
@@ -188,7 +200,7 @@ export const exportDailyReportToPDF = (date: Date, filters: Filters, absences: D
         theme: 'grid',
         didDrawPage: (data) => {
             if (data.pageNumber > 1) {
-                addHeader(doc);
+                addHeader(doc, 'Relatório Diário de Ausências');
             }
         },
         margin: { top: 45, left: margin, right: margin }
@@ -199,3 +211,101 @@ export const exportDailyReportToPDF = (date: Date, filters: Filters, absences: D
 
     doc.save(fileName);
 };
+
+
+export const exportMonthlyReportToPDF = (period: string, filters: Filters, absences: MonthlyAbsenceSummary[]) => {
+    const doc = new jsPDF({ orientation: 'p' });
+    const fileName = `Relatorio_Mensal_Faltas_${period.replace(/ /g, '_')}.pdf`;
+    const margin = 10;
+
+    addHeader(doc, 'Relatório Mensal de Faltas');
+
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Detalhes do Relatório', margin, 50);
+
+    const detailsBody = [
+        ['Período do Relatório:', period],
+        ['Total de Alunos com Faltas:', `${absences.length}`],
+        ['Ensino:', formatFilter(filters.ensino)],
+        ['Série:', formatFilter(filters.grade)],
+        ['Turma:', formatFilter(filters.studentClass)],
+        ['Turno:', formatFilter(filters.shift)],
+    ];
+
+    autoTable(doc, {
+        body: detailsBody,
+        startY: 54,
+        theme: 'plain',
+        tableWidth: 'auto',
+        styles: {
+            cellPadding: { top: 1, right: 2, bottom: 1, left: 0 },
+            fontSize: 10,
+        },
+        columnStyles: {
+            0: { fontStyle: 'bold', cellWidth: 50 },
+            1: { cellWidth: 'auto' },
+        }
+    });
+
+    const tableStartY = (doc as any).lastAutoTable.finalY + 10;
+
+    const tableColumn = ["Pos.", "Nome", "Série/Turma", "Telefone", "Justificadas", "Não Justif.", "Total"];
+    const tableRows: (string | number)[][] = [];
+
+    absences.forEach((record, index) => {
+        const row = [
+            `${index + 1}º`,
+            record.studentName,
+            `${record.grade} / ${record.class}`,
+            formatTelefone(record.telefone),
+            record.justifiedAbsences,
+            record.unjustifiedAbsences,
+            record.totalAbsences,
+        ];
+        tableRows.push(row);
+    });
+
+    autoTable(doc, {
+        head: [tableColumn],
+        body: tableRows,
+        startY: tableStartY,
+        headStyles: {
+            fillColor: [200, 80, 80],
+            textColor: [255, 255, 255],
+            fontStyle: 'bold',
+            fontSize: 9,
+            cellPadding: 2,
+        },
+        styles: {
+            fontSize: 8,
+            cellPadding: { top: 1.5, right: 2, bottom: 1.5, left: 2 },
+            overflow: 'linebreak',
+            valign: 'middle',
+        },
+        columnStyles: {
+            0: { cellWidth: 10, halign: 'center' }, // Posição
+            1: { cellWidth: 'auto' },               // Nome
+            2: { cellWidth: 20 },                   // Série/Turma
+            3: { cellWidth: 30 },                   // Telefone
+            4: { cellWidth: 20, halign: 'center' }, // Justificadas
+            5: { cellWidth: 20, halign: 'center' }, // Não Justif.
+            6: { cellWidth: 15, halign: 'center', fontStyle: 'bold' }, // Total
+        },
+        alternateRowStyles: {
+            fillColor: [245, 245, 245]
+        },
+        theme: 'grid',
+        didDrawPage: (data) => {
+            if (data.pageNumber > 1) {
+                addHeader(doc, 'Relatório Mensal de Faltas');
+            }
+        },
+        margin: { top: 45, left: margin, right: margin }
+    });
+    
+    addWatermark(doc);
+    addFooter(doc);
+
+    doc.save(fileName);
+}

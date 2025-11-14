@@ -13,18 +13,8 @@ import { useFirebase } from "@/firebase";
 import { collection, getDocs, query, where, DocumentData, Timestamp, Query } from 'firebase/firestore';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { exportMonthlyReportToPDF, type MonthlyAbsenceSummary } from "@/lib/pdf-export";
 
-type MonthlyAbsenceSummary = {
-    studentId: string;
-    studentName: string;
-    grade: string;
-    class: string;
-    shift: string;
-    telefone: string;
-    totalAbsences: number;
-    justifiedAbsences: number;
-    unjustifiedAbsences: number;
-}
 
 const months = Array.from({ length: 12 }, (_, i) => ({
   value: i,
@@ -139,6 +129,12 @@ export function MonthlyReport() {
         });
     };
 
+    const handleExport = () => {
+        if (!searchedPeriod || absences.length === 0) return;
+        const filters = { ensino, grade, studentClass, shift };
+        exportMonthlyReportToPDF(searchedPeriod, filters, absences);
+    };
+
     const formatTelefone = (telefone?: string) => {
         if (!telefone || telefone === '-') return '-';
         return telefone.split(',').slice(0, 2).join(', ');
@@ -226,6 +222,10 @@ export function MonthlyReport() {
                                 {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
                                 Buscar
                         </Button>
+                        <Button onClick={handleExport} disabled={isPending || !searchedPeriod || absences.length === 0} className="w-full sm:w-auto" variant="secondary">
+                            <FileDown className="mr-2 h-4 w-4" />
+                            Exportar para PDF
+                        </Button>
                     </div>
                 </div>
 
@@ -274,5 +274,3 @@ export function MonthlyReport() {
         </Card>
     );
 }
-
-    
