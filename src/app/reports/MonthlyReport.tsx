@@ -81,19 +81,20 @@ export function MonthlyReport() {
             const endDate = endOfMonth(new Date(year, month));
             setSearchedPeriod(`${months.find(m => m.value === month)?.label} de ${year}`);
             
-            let q: Query<DocumentData> = query(collection(firestore, 'attendance'), 
+            const q: Query<DocumentData> = query(collection(firestore, 'attendance'), 
                 where('status', 'in', ['absent', 'justified']),
                 where('date', '>=', Timestamp.fromDate(startDate)),
                 where('date', '<=', Timestamp.fromDate(endDate))
             );
-
-            if (ensino !== 'all') q = query(q, where('ensino', '==', ensino));
-            if (grade !== 'all') q = query(q, where('grade', '==', grade));
-            if (studentClass !== 'all') q = query(q, where('class', '==', studentClass));
-            if (shift !== 'all') q = query(q, where('shift', '==', shift));
             
             const querySnapshot = await getDocs(q);
-            const records = querySnapshot.docs.map(doc => doc.data() as AttendanceRecord);
+            let records = querySnapshot.docs.map(doc => doc.data() as AttendanceRecord);
+
+            // Filtros no lado do cliente
+            if (ensino !== 'all') records = records.filter(r => r.ensino === ensino);
+            if (grade !== 'all') records = records.filter(r => r.grade === grade);
+            if (studentClass !== 'all') records = records.filter(r => r.class === studentClass);
+            if (shift !== 'all') records = records.filter(r => r.shift === shift);
 
             const summary: Record<string, MonthlyAbsenceSummary> = {};
 
