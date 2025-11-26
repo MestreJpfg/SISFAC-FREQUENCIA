@@ -63,8 +63,8 @@ export function IndividualReport() {
                 collection(firestore, 'attendance'),
                 where('studentId', '==', selectedStudent.id),
                 where('date', '>=', startDate),
-                where('date', '<=', endDate),
-                orderBy('date', 'asc')
+                where('date', '<=', endDate)
+                // orderBy('date', 'asc') was removed to prevent index error
             );
             
             const querySnapshot = await getDocs(q);
@@ -79,6 +79,9 @@ export function IndividualReport() {
 
             // Filter for absences on the client-side
             const studentAbsences = results.filter(record => record.status === 'absent' || record.status === 'justified');
+
+            // Sort on the client-side
+            studentAbsences.sort((a, b) => (a.date as Date).getTime() - (b.date as Date).getTime());
 
             setAbsences(studentAbsences);
         });
