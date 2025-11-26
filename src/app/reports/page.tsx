@@ -2,21 +2,26 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DailyReport } from "./DailyReport";
 import { MonthlyReport } from "./MonthlyReport";
+import { IndividualReport } from "./IndividualReport";
 
 export default async function ReportsPage() {
     return (
         <div className="w-full">
             <h1 className="text-3xl font-bold font-headline mb-6">Relatórios de Frequência</h1>
             <Tabs defaultValue="daily">
-                <TabsList className="grid w-full grid-cols-2 max-w-md">
+                <TabsList className="grid w-full grid-cols-3 max-w-lg">
                     <TabsTrigger value="daily">Relatório Diário</TabsTrigger>
                     <TabsTrigger value="monthly">Relatório Mensal</TabsTrigger>
+                    <TabsTrigger value="individual">Relatório Individual</TabsTrigger>
                 </TabsList>
                 <TabsContent value="daily" className="mt-6">
                     <DailyReport />
                 </TabsContent>
                 <TabsContent value="monthly" className="mt-6">
                     <MonthlyReport />
+                </TabsContent>
+                <TabsContent value="individual" className="mt-6">
+                    <IndividualReport />
                 </TabsContent>
             </Tabs>
         </div>
