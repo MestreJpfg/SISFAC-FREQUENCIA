@@ -62,7 +62,6 @@ export function IndividualReport() {
             const q = query(
                 collection(firestore, 'attendance'),
                 where('studentId', '==', selectedStudent.id),
-                where('status', 'in', ['absent', 'justified']),
                 where('date', '>=', startDate),
                 where('date', '<=', endDate),
                 orderBy('date', 'asc')
@@ -77,7 +76,11 @@ export function IndividualReport() {
                      date: (data.date as Timestamp).toDate(),
                  } as unknown as AttendanceRecord;
             });
-            setAbsences(results);
+
+            // Filter for absences on the client-side
+            const studentAbsences = results.filter(record => record.status === 'absent' || record.status === 'justified');
+
+            setAbsences(studentAbsences);
         });
     };
     
@@ -236,4 +239,3 @@ export function IndividualReport() {
         </Card>
     );
 }
-
