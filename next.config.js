@@ -6,7 +6,7 @@ const withPWA = require('next-pwa')({
 });
 
 const nextConfig = {
-  /* config options here */
+  turbopack: {}, // Explicitly enable Turbopack
   typescript: {
     ignoreBuildErrors: true,
   },
