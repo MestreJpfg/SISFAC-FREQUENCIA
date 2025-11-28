@@ -1,7 +1,7 @@
 
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { format } from 'date-fns';
+import { format, getDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import type { AttendanceRecord, Student } from './types';
 import { logoBase64 } from './logo-image';
@@ -396,6 +396,100 @@ export const exportIndividualReportToPDF = (student: Student, from: Date, to: Da
         doc.setFontSize(10);
         doc.setTextColor(150);
         doc.text('Nenhum registro de falta para este aluno no período selecionado.', margin, tableStartY);
+    }
+    
+    addWatermark(doc);
+    addFooter(doc);
+
+    doc.save(fileName);
+};
+
+
+export const exportCustomReportToPDF = (from: Date, to: Date, days: number[], filters: Filters, absences: AttendanceRecord[]) => {
+    const doc = new jsPDF({ orientation: 'p' });
+    const period = `${format(from, 'dd/MM/yyyy')} a ${format(to, 'dd/MM/yyyy')}`;
+    const daysOfWeek = [ 'Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+    const selectedDays = days.map(d => daysOfWeek[d]).join(', ');
+    const fileName = `Relatorio_Personalizado_Faltas_${format(new Date(), 'yyyy-MM-dd')}.pdf`;
+    const margin = 10;
+
+    addHeader(doc, 'Relatório Personalizado de Faltas');
+
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Detalhes do Relatório', margin, 50);
+
+    const detailsBody = [
+        ['Período de Consulta:', period],
+        ['Dias da Semana:', selectedDays],
+        ['Total de Faltas Encontradas:', `${absences.length}`],
+        ['Ensino:', formatFilter(filters.ensino)],
+        ['Série:', formatFilter(filters.grade)],
+        ['Turma:', formatFilter(filters.studentClass)],
+        ['Turno:', formatFilter(filters.shift)],
+    ];
+
+    autoTable(doc, {
+        body: detailsBody,
+        startY: 54,
+        theme: 'plain',
+        styles: {
+            cellPadding: { top: 1, right: 2, bottom: 1, left: 0 },
+            fontSize: 10,
+        },
+        columnStyles: {
+            0: { fontStyle: 'bold', cellWidth: 50 },
+            1: { cellWidth: 'auto' },
+        }
+    });
+
+    const tableStartY = (doc as any).lastAutoTable.finalY + 10;
+
+    if (absences.length > 0) {
+        const tableColumn = ["Data", "Dia da Semana", "Aluno", "Série/Turma", "Status"];
+        const tableRows: (string | number)[][] = [];
+
+        absences.forEach(record => {
+            const date = (record.date as any).toDate();
+            const row = [
+                format(date, 'dd/MM/yyyy', { locale: ptBR }),
+                format(date, 'eeee', { locale: ptBR }),
+                record.studentName,
+                `${record.grade} / ${record.class}`,
+                formatStatus(record.status),
+            ];
+            tableRows.push(row);
+        });
+
+        autoTable(doc, {
+            head: [tableColumn],
+            body: tableRows,
+            startY: tableStartY,
+            headStyles: {
+                fillColor: [60, 60, 60],
+                textColor: [255, 255, 255],
+                fontStyle: 'bold',
+                fontSize: 9,
+            },
+            styles: {
+                fontSize: 8,
+                overflow: 'linebreak',
+            },
+            alternateRowStyles: {
+                fillColor: [245, 245, 245]
+            },
+            theme: 'grid',
+            didDrawPage: (data) => {
+                if (data.pageNumber > 1) {
+                    addHeader(doc, 'Relatório Personalizado de Faltas');
+                }
+            },
+            margin: { top: 45, left: margin, right: margin }
+        });
+    } else {
+        doc.setFontSize(10);
+        doc.setTextColor(150);
+        doc.text('Nenhum registro de falta encontrado para os critérios selecionados.', margin, tableStartY);
     }
     
     addWatermark(doc);
